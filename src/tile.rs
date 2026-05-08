@@ -1,27 +1,38 @@
-use bevy::{color::palettes::css::PURPLE, prelude::*};
+pub mod render;
+
+use bevy::prelude::*;
 use std::time::Instant;
 
+use self::render::{TileMaterial, TileMaterialPlugin};
 use crate::tile_kind::{Suit, TileKind};
 
 pub struct TilePlugin;
 
 impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup)
+        app.add_plugins(TileMaterialPlugin {})
+            .add_systems(Startup, setup)
             .add_systems(Update, (lerp_tiles, update_tile_materials, layout_hand));
     }
 }
 
 fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut materials: ResMut<Assets<TileMaterial>>,
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) {
     // TODO: make this editiable on the plugin
-    commands.insert_resource(TileBackMaterial(materials.add(Color::WHITE)));
+    commands.insert_resource(TileBackMaterial(materials.add(TileMaterial::new(
+        asset_server.load("back-face-placeholder.png"),
+    ))));
 
-    let tile_face_material = materials.add(ColorMaterial::from_color(PURPLE));
-    let tile_mesh = meshes.add(Rectangle::default());
+    let tile_face_material = materials.add(TileMaterial::new(
+        asset_server.load("front-face-placeholder.png"),
+    ));
+
+    // 4.0 / 3.0 because the tiles are 3:4 aspect ratio
+    let tile_mesh = meshes.add(Rectangle::from_size(Vec2::new(1.0, 4.0 / 3.0)));
 
     let hand_id = spawn_hand(&mut commands);
 
@@ -62,11 +73,11 @@ struct Tile {
 
 /// material for a tiles face
 #[derive(Component)]
-struct TileFaceMaterial(Handle<ColorMaterial>);
+struct TileFaceMaterial(Handle<TileMaterial>);
 
 // Shared resource for the back of tiles (since all tiles are same on back)
 #[derive(Resource)]
-struct TileBackMaterial(Handle<ColorMaterial>);
+struct TileBackMaterial(Handle<TileMaterial>);
 
 /// the currently up facing face of a tile, i.e. the face you can see
 #[derive(Component, Default)]
@@ -103,7 +114,7 @@ pub fn spawn_hand(commands: &mut Commands) -> Entity {
 /// spawns a tile with a specified front facing material, and a mesh
 pub fn spawn_tile(
     commands: &mut Commands,
-    material: &Handle<ColorMaterial>,
+    material: &Handle<TileMaterial>,
     mesh: &Handle<Mesh>,
 ) -> Entity {
     commands
@@ -111,10 +122,10 @@ pub fn spawn_tile(
             TileFaceMaterial(material.clone()),
             ShownFace::default(),
             Transform::default().with_scale(Vec3::splat(128.0)),
-            // TODO: this should probably be done with a resource specified when plugin made
             Tile {
                 data: TileKind::Suit(Suit::Characters(1)),
             },
+            // TODO: this should probably be done with a resource specified when plugin made
             Mesh2d(mesh.clone()),
             MeshMaterial2d(material.clone()),
         ))
@@ -127,7 +138,7 @@ fn update_tile_materials(
         (
             &ShownFace,
             &TileFaceMaterial,
-            &mut MeshMaterial2d<ColorMaterial>,
+            &mut MeshMaterial2d<TileMaterial>,
         ),
         Changed<ShownFace>,
     >,

@@ -4,7 +4,8 @@ use std::time::{Duration, Instant};
 use crate::{
     GameState,
     tile::{
-        DiscardAnchor, HandAnchor, OwnedTile, TileCollection, UnusedAnchor, WallAnchor, spawn_tile,
+        DiscardAnchor, HandAnchor, OwnedTile, TileCollection, UnusedAnchor, WallAnchor,
+        render::TileMaterial, spawn_tile,
     },
 };
 
@@ -72,11 +73,14 @@ pub fn level_plugin(app: &mut App) {
 /// For now its hardcoded.
 fn init_level(
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut materials: ResMut<Assets<TileMaterial>>,
     mut commands: Commands,
     mut next_state: ResMut<NextState<LevelState>>,
+    asset_server: Res<AssetServer>,
 ) {
-    let tile_face_material = materials.add(ColorMaterial::from_color(PURPLE));
+    let tile_face_material = materials.add(TileMaterial::new(
+        asset_server.load("front-face-placeholder.png"),
+    ));
     let tile_mesh = meshes.add(Rectangle::default());
 
     // Spawn in the unused pile.
