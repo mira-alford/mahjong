@@ -18,8 +18,45 @@ fn tile_spawn_system(
     spawn_tile(&mut meshes, &mut materials, &mut commands);
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TileKind {
+    Suit(Suit),
+    Honor(Honor),
+}
+
+/// suits each with associated number between 1 and 9
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Suit {
+    Characters(u8),
+    Circle(u8),
+    Bamboo(u8),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Honor {
+    Wind(Wind),
+    Dragon(Dragon),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Wind {
+    East,
+    South,
+    West,
+    North,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Dragon {
+    Red,
+    Green,
+    White,
+}
+
 #[derive(Component)]
-struct Tile;
+struct Tile {
+    data: TileKind,
+}
 
 #[derive(Component)]
 struct MoveCurve {
@@ -47,6 +84,9 @@ fn spawn_tile(
             Transform::default().with_scale(Vec3::splat(128.0)),
             Mesh2d(meshes.add(Rectangle::default())),
             MeshMaterial2d(materials.add(Color::from(PURPLE))),
+            Tile {
+                data: TileKind::Suit(Suit::Characters(1)),
+            },
         ))
         .observe(tile_click_oberver);
 }
