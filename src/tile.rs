@@ -6,7 +6,7 @@ pub struct TilePlugin;
 impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup)
-            .add_systems(Update, (lerp_tiles, update_tile_materials));
+            .add_systems(Update, (lerp_tiles, update_tile_materials, layout_hand));
     }
 }
 
@@ -21,8 +21,29 @@ fn setup(
     let tile_face_material = materials.add(ColorMaterial::from_color(PURPLE));
     let tile_mesh = meshes.add(Rectangle::default());
 
-    spawn_tile(&mut commands, &tile_face_material, &tile_mesh);
+    let hand_id = spawn_hand(&mut commands);
+
+    let tile_id = spawn_tile(&mut commands, &tile_face_material, &tile_mesh);
+    commands.entity(tile_id).insert(OwnedTile(hand_id)); // i.e., tile is 'owned' by hand
 }
+
+/// Vec2 denoting the position of where the hand should be rendered and a float length?
+#[derive(Component, Debug)]
+struct HandAnchor(Vec2, f32);
+
+/// Vec2 denoting the position of where the discord pile should be rendered
+#[derive(Component, Debug)]
+struct DiscardAnchor(Vec2);
+
+/// Relationship that points from the tile to the 'owner' hand
+#[derive(Component, Debug)]
+#[relationship(relationship_target = TileCollection)]
+struct OwnedTile(pub Entity);
+
+/// Relationship denoting the hand that holds all of the tiles
+#[derive(Component, Debug, Default)]
+#[relationship_target(relationship = OwnedTile, linked_spawn)]
+struct TileCollection(Vec<Entity>);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TileKind {
@@ -59,7 +80,7 @@ pub enum Dragon {
     White,
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 struct Tile {
     data: TileKind,
 }
@@ -84,7 +105,7 @@ enum TileFace {
 }
 
 /// movement curve
-#[derive(Component)]
+#[derive(Component, Debug)]
 struct MoveCurve {
     start: Vec2,
     end: Vec2,
@@ -93,8 +114,23 @@ struct MoveCurve {
     b: f32,
 }
 
+/// Spawner of the hand
+pub fn spawn_hand(commands: &mut Commands) -> Entity {
+    commands
+        .spawn((
+            HandAnchor(Vec2::new(200.0, 200.0), 500.0),
+            TileCollection::default(),
+            Transform::default().with_scale(Vec3::splat(128.0)),
+        ))
+        .id()
+}
+
 /// spawns a tile with a specified front facing material, and a mesh
-fn spawn_tile(commands: &mut Commands, material: &Handle<ColorMaterial>, mesh: &Handle<Mesh>) {
+fn spawn_tile(
+    commands: &mut Commands,
+    material: &Handle<ColorMaterial>,
+    mesh: &Handle<Mesh>,
+) -> Entity {
     commands
         .spawn((
             TileFaceMaterial(material.clone()),
@@ -114,7 +150,8 @@ fn spawn_tile(commands: &mut Commands, material: &Handle<ColorMaterial>, mesh: &
             Mesh2d(mesh.clone()),
             MeshMaterial2d(material.clone()),
         ))
-        .observe(tile_click_oberver);
+        .observe(tile_click_oberver)
+        .id()
 }
 
 fn update_tile_materials(
@@ -165,6 +202,69 @@ fn lerp_tiles(mut commands: Commands, mut tiles: Query<(Entity, &MoveCurve, &mut
 
         if 1.0 - move_scalar < 1e-5 {
             commands.entity(entity).remove::<MoveCurve>();
+        }
+    }
+}
+
+/// `a` and `b` params that are used in our move curve functions
+/// these dictate the way in which tiles are moved (in terms of speed)
+/// for laying out a hand
+const LAYOUT_HAND_MOVE_A: f32 = 1.0;
+const LAYOUT_HAND_MOVE_B: f32 = 3.5;
+
+/// Goes through the hand collections that have a hand anchor and puts the appropriate [`MoveCurve`]
+/// on the tile based on where it needs to go relative to the [`HandAnchor`].
+fn layout_hand(
+    mut commands: Commands,
+    hand_anchors: Query<(Entity, &HandAnchor)>,
+    all_tiles: Query<(&Transform, Option<&MoveCurve>)>,
+    tile_collections: Query<&TileCollection>,
+) {
+    for (hand_entity, HandAnchor(anchor_pos, anchor_len)) in hand_anchors {
+        let tile_iter: Vec<_> = tile_collections.iter_descendants(hand_entity).collect();
+
+        // collect all of the tiles that we own (filtering out non-tiles)
+        for (i, tile) in tile_iter.iter().enumerate() {
+            // we always add offset regardless because some entities might be filling slots
+            // (e.g., placeholder tile that we don't render but still affects offset)
+            let cur_offset = i as f32 * anchor_len / tile_iter.len() as f32;
+
+            let Ok((tile_transform, opt_move_curve)) = all_tiles.get(*tile) else {
+                continue; // if not owned, we skip
+            };
+
+            // calculate where tile should be
+            let new_tile_pos = anchor_pos + Vec2::X * cur_offset;
+            let existing_tile_pos = tile_transform.translation.xy();
+
+            let pos_delta = (existing_tile_pos - new_tile_pos).length();
+
+            // if position change is super small, don't bother moving
+            if pos_delta < 1e-4 {
+                continue;
+            }
+
+            // @Jackson, can you fix this :)))))))
+            if let Some(move_curve) = opt_move_curve {
+                let existing_tile_pos = move_curve.end;
+
+                let pos_delta = (existing_tile_pos - new_tile_pos).length();
+
+                // if position change is super small, don't bother moving
+                if pos_delta < 1e-4 {
+                    continue;
+                }
+            }
+
+            let move_curve = MoveCurve {
+                start: existing_tile_pos,
+                end: new_tile_pos,
+                start_time: Instant::now(),
+                a: LAYOUT_HAND_MOVE_A,
+                b: LAYOUT_HAND_MOVE_B,
+            };
+
+            commands.entity(*tile).insert(move_curve);
         }
     }
 }
