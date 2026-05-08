@@ -17,6 +17,9 @@ fn tile_spawn_system(
 }
 
 #[derive(Component)]
+struct Tile;
+
+#[derive(Component)]
 struct MoveCurve {
     start: Vec2,
     end: Vec2,
@@ -29,6 +32,7 @@ fn spawn_tile(
     commands: &mut Commands,
 ) {
     commands.spawn((
+        Tile,
         MoveCurve {
             start: Vec2::ZERO,
             end: Vec2::ZERO,
