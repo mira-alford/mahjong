@@ -1,3 +1,7 @@
 use bevy::prelude::*;
 
-struct Position(Transform);
+struct MoveCurve {
+    start: Vec2,
+    end: Vec2,
+    t: f64,
+}
