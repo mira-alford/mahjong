@@ -1,21 +1,27 @@
-use bevy::{color::palettes::css::PURPLE, ecs::event::Trigger, prelude::*};
+use bevy::{color::palettes::css::PURPLE, prelude::*};
 use std::time::Instant;
 
 pub struct TilePlugin;
 
 impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, tile_spawn_system)
-            .add_systems(Update, (lerp_tiles));
+        app.add_systems(Startup, setup)
+            .add_systems(Update, (lerp_tiles, update_tile_materials));
     }
 }
 
-fn tile_spawn_system(
+fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut commands: Commands,
 ) {
-    spawn_tile(&mut meshes, &mut materials, &mut commands);
+    // TODO: make this editiable on the plugin
+    commands.insert_resource(TileBackMaterial(materials.add(Color::WHITE)));
+
+    let tile_face_material = materials.add(ColorMaterial::from_color(PURPLE));
+    let tile_mesh = meshes.add(Rectangle::default());
+
+    spawn_tile(&mut commands, &tile_face_material, &tile_mesh);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -58,6 +64,26 @@ struct Tile {
     data: TileKind,
 }
 
+/// material for a tiles face
+#[derive(Component)]
+struct TileFaceMaterial(Handle<ColorMaterial>);
+
+// Shared resource for the back of tiles (since all tiles are same on back)
+#[derive(Resource)]
+struct TileBackMaterial(Handle<ColorMaterial>);
+
+/// the currently up facing face of a tile, i.e. the face you can see
+#[derive(Component, Default)]
+struct ShownFace(TileFace);
+
+#[derive(Default)]
+enum TileFace {
+    #[default]
+    Top,
+    Bottom,
+}
+
+/// movement curve
 #[derive(Component)]
 struct MoveCurve {
     start: Vec2,
@@ -67,13 +93,12 @@ struct MoveCurve {
     b: f32,
 }
 
-fn spawn_tile(
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<ColorMaterial>>,
-    commands: &mut Commands,
-) {
+/// spawns a tile with a specified front facing material, and a mesh
+fn spawn_tile(commands: &mut Commands, material: &Handle<ColorMaterial>, mesh: &Handle<Mesh>) {
     commands
         .spawn((
+            TileFaceMaterial(material.clone()),
+            ShownFace::default(),
             MoveCurve {
                 start: Vec2::ZERO,
                 end: Vec2::new(500.0, 500.0),
@@ -82,17 +107,48 @@ fn spawn_tile(
                 b: 3.5,
             },
             Transform::default().with_scale(Vec3::splat(128.0)),
-            Mesh2d(meshes.add(Rectangle::default())),
-            MeshMaterial2d(materials.add(Color::from(PURPLE))),
+            // TODO: this should probably be done with a resource specified when plugin made
             Tile {
                 data: TileKind::Suit(Suit::Characters(1)),
             },
+            Mesh2d(mesh.clone()),
+            MeshMaterial2d(material.clone()),
         ))
         .observe(tile_click_oberver);
 }
 
-fn tile_click_oberver(event: On<Pointer<Click>>) {
-    println!("clicked {:?}", event.event_target())
+fn update_tile_materials(
+    mut query: Query<
+        (
+            &ShownFace,
+            &TileFaceMaterial,
+            &mut MeshMaterial2d<ColorMaterial>,
+        ),
+        Changed<ShownFace>,
+    >,
+    bottom_material: Res<TileBackMaterial>,
+) {
+    for (face, top_material, mut material) in query.iter_mut() {
+        match face.0 {
+            TileFace::Top => material.0 = top_material.0.clone(),
+            TileFace::Bottom => material.0 = bottom_material.0.clone(),
+        }
+    }
+}
+
+fn tile_click_oberver(event: On<Pointer<Click>>, mut query: Query<&mut ShownFace>) {
+    let event_target = event.event_target();
+
+    println!("clicked {:?}", event_target);
+
+    let mut face = query
+        .get_mut(event_target)
+        .expect("expected clicked tile to have ShownFace componenet");
+
+    match face.0 {
+        TileFace::Top => face.0 = TileFace::Bottom,
+        TileFace::Bottom => face.0 = TileFace::Top,
+    }
 }
 
 fn stretched_exp(x: f32, a: f32, b: f32) -> f32 {

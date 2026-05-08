@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 pub mod tile;
 pub mod title_menu;
 
