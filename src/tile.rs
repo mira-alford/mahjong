@@ -25,6 +25,12 @@ fn setup(
 
     let tile_id = spawn_tile(&mut commands, &tile_face_material, &tile_mesh);
     commands.entity(tile_id).insert(OwnedTile(hand_id)); // i.e., tile is 'owned' by hand
+    let tile_id = spawn_tile(&mut commands, &tile_face_material, &tile_mesh);
+    commands.entity(tile_id).insert(OwnedTile(hand_id)); // i.e., tile is 'owned' by hand
+    let tile_id = spawn_tile(&mut commands, &tile_face_material, &tile_mesh);
+    commands.entity(tile_id).insert(OwnedTile(hand_id)); // i.e., tile is 'owned' by hand
+    let tile_id = spawn_tile(&mut commands, &tile_face_material, &tile_mesh);
+    commands.entity(tile_id).insert(OwnedTile(hand_id)); // i.e., tile is 'owned' by hand
 }
 
 /// Vec2 denoting the position of where the hand should be rendered and a float length?
@@ -118,7 +124,7 @@ struct MoveCurve {
 pub fn spawn_hand(commands: &mut Commands) -> Entity {
     commands
         .spawn((
-            HandAnchor(Vec2::new(200.0, 200.0), 500.0),
+            HandAnchor(Vec2::new(-500.0, -300.0), 1000.0),
             TileCollection::default(),
             Transform::default().with_scale(Vec3::splat(128.0)),
         ))
