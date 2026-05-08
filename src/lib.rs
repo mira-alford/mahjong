@@ -27,6 +27,7 @@ impl Plugin for MahjongPlugin {
             .add_systems(Startup, setup)
             .add_plugins((MeshPickingPlugin, tile::TilePlugin))
             .add_plugins(title_menu::title_menu_plugin)
-            .add_plugins(level::level_plugin);
+            .add_plugins(level::level_plugin)
+            .add_plugins(layout::layout_plugin);
     }
 }

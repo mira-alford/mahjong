@@ -6,6 +6,7 @@ use crate::tile::MoveCurve;
 
 pub fn layout_plugin(app: &mut App) {
     app.add_systems(Update, layout_hand)
+        .add_systems(FixedUpdate, transfer_tiles)
         .add_message::<TransferTile>();
 }
 
@@ -42,10 +43,10 @@ const LAYOUT_HAND_MOVE_A: f32 = 1.0;
 const LAYOUT_HAND_MOVE_B: f32 = 3.5;
 
 #[derive(Message)]
-struct TransferTile {
-    tile: Entity,
-    src: Entity,
-    dest: Entity,
+pub struct TransferTile {
+    pub tile: Entity,
+    pub src: Entity,
+    pub dest: Entity,
 }
 
 /// Event handler for transferring tiles from one collection to another.

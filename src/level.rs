@@ -3,7 +3,10 @@ use std::time::Duration;
 
 use crate::{
     GameState,
-    layout::{DiscardAnchor, HandAnchor, OwnedTile, TileCollection, UnusedAnchor, WallAnchor},
+    layout::{
+        DiscardAnchor, HandAnchor, OwnedTile, TileCollection, TransferTile, UnusedAnchor,
+        WallAnchor,
+    },
     tile::{render::TileMaterial, spawn_tile},
 };
 
@@ -133,6 +136,10 @@ fn build_wall(
     mut timer: ResMut<TransitionTimer>,
     time: Res<Time>,
     mut next_state: ResMut<NextState<LevelState>>,
+    sources: Query<Entity, Or<(With<UnusedAnchor>, With<DiscardAnchor>)>>,
+    sinks: Query<Entity, With<WallAnchor>>,
+    tile_collections: Query<&TileCollection>,
+    mut messages: MessageWriter<TransferTile>,
 ) {
     timer.0.tick(time.delta());
     if !timer.0.just_finished() {
@@ -141,17 +148,26 @@ fn build_wall(
 
     let mut stabilised = true;
 
-    // Are there any pieces in the unused or either discard?
-    // if yes, transfer a single one (first from unused) to the wall.
-    let pieces_remaining = true;
-    if pieces_remaining {
-        stabilised = false;
+    for sink in sinks {
+        // Are there any pieces in the unused or either discard?
+        // if yes, transfer a single one (first from unused) to the wall.
+        'outer: for source in sources {
+            for tile_entity in tile_collections.iter_descendants(source) {
+                messages.write(TransferTile {
+                    tile: tile_entity,
+                    src: source,
+                    dest: sink,
+                });
+                stabilised = false;
+                break 'outer;
+            }
+        }
     }
 
-    let pieces_stabilised = false;
-    if !pieces_stabilised {
-        stabilised = false;
-    }
+    // let pieces_stabilised = false;
+    // if !pieces_stabilised {
+    //     stabilised = false;
+    // }
 
     // No more pieces? then transition state to dealing.
     if stabilised {
@@ -164,25 +180,43 @@ fn deal_tiles(
     mut timer: ResMut<TransitionTimer>,
     time: Res<Time>,
     mut next_state: ResMut<NextState<LevelState>>,
+    sources: Query<Entity, With<WallAnchor>>,
+    sinks: Query<Entity, With<HandAnchor>>,
+    tile_collections: Query<&TileCollection>,
+    mut messages: MessageWriter<TransferTile>,
+    mut counter: Local<usize>,
 ) {
     timer.0.tick(time.delta());
     if !timer.0.just_finished() {
         return;
     }
 
-    // If both players hands are at least size 14, we go to the draw state.
-    let full = true;
-    if full {
-        next_state.set(LevelState::Draw);
-        return;
+    // Choose a sink;
+    let sinks: Vec<_> = sinks.iter().collect();
+    *counter += 1;
+    *counter %= sinks.len();
+    let sink = sinks[*counter];
+    for source in sources {
+        for tile_entity in tile_collections.iter_descendants(source) {
+            for sink in sinks {
+                let descendants: Vec<_> = tile_collections.iter_descendants(sink).collect();
+                if descendants.len() > 14 {
+                    continue;
+                }
+                messages.write(TransferTile {
+                    tile: tile_entity,
+                    src: source,
+                    dest: sink,
+                });
+                return;
+            }
+            next_state.set(LevelState::Draw);
+            return;
+        }
     }
+    next_state.set(LevelState::BuildWall);
 
-    // If the wall is empty, go back to building the wall
-    let wall_empty = false;
-    if wall_empty {
-        next_state.set(LevelState::BuildWall);
-        return;
-    }
+    // If both players hands are at least size 14, we go to the draw state.
 
     // Otherwise, we maintain this state.
     // Play a tile into any hand of size < 14.
