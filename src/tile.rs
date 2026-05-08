@@ -1,4 +1,4 @@
-use bevy::{color::palettes::css::PURPLE, prelude::*};
+use bevy::{color::palettes::css::PURPLE, ecs::event::Trigger, prelude::*};
 
 pub struct TilePlugin;
 
@@ -31,15 +31,21 @@ fn spawn_tile(
     materials: &mut ResMut<Assets<ColorMaterial>>,
     commands: &mut Commands,
 ) {
-    commands.spawn((
-        Tile,
-        MoveCurve {
-            start: Vec2::ZERO,
-            end: Vec2::ZERO,
-            t: 0.0,
-        },
-        Transform::default().with_scale(Vec3::splat(128.0)),
-        Mesh2d(meshes.add(Rectangle::default())),
-        MeshMaterial2d(materials.add(Color::from(PURPLE))),
-    ));
+    commands
+        .spawn((
+            Tile,
+            MoveCurve {
+                start: Vec2::ZERO,
+                end: Vec2::ZERO,
+                t: 0.0,
+            },
+            Transform::default().with_scale(Vec3::splat(128.0)),
+            Mesh2d(meshes.add(Rectangle::default())),
+            MeshMaterial2d(materials.add(Color::from(PURPLE))),
+        ))
+        .observe(tile_click_oberver);
+}
+
+fn tile_click_oberver(event: On<Pointer<Click>>) {
+    println!("clicked {:?}", event.event_target())
 }
