@@ -1,3 +1,28 @@
+use bevy::prelude::*;
+
+mod tile;
+pub mod title_menu;
+
+#[derive(Default, States, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum GameState {
+    #[default]
+    TitleMenu,
+}
+
+pub struct MahjongPlugin;
+
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2d);
+}
+
+impl Plugin for MahjongPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_state::<GameState>()
+            .add_systems(Startup, setup)
+            .add_plugins(title_menu::title_menu_plugin);
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tile {
     Suit(Suit),
