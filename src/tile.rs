@@ -1,6 +1,5 @@
+use bevy::{color::palettes::css::PURPLE, ecs::event::Trigger, prelude::*};
 use std::time::Instant;
-
-use bevy::{color::palettes::css::PURPLE, prelude::*};
 
 pub struct TilePlugin;
 
@@ -20,6 +19,9 @@ fn tile_spawn_system(
 }
 
 #[derive(Component)]
+struct Tile;
+
+#[derive(Component)]
 struct MoveCurve {
     start: Vec2,
     end: Vec2,
@@ -33,18 +35,24 @@ fn spawn_tile(
     materials: &mut ResMut<Assets<ColorMaterial>>,
     commands: &mut Commands,
 ) {
-    commands.spawn((
-        MoveCurve {
-            start: Vec2::ZERO,
-            end: Vec2::new(500.0, 500.0),
-            start_time: Instant::now(),
-            a: 1.0,
-            b: 3.5,
-        },
-        Transform::default().with_scale(Vec3::splat(128.0)),
-        Mesh2d(meshes.add(Rectangle::default())),
-        MeshMaterial2d(materials.add(Color::from(PURPLE))),
-    ));
+    commands
+        .spawn((
+            MoveCurve {
+                start: Vec2::ZERO,
+                end: Vec2::new(500.0, 500.0),
+                start_time: Instant::now(),
+                a: 1.0,
+                b: 3.5,
+            },
+            Transform::default().with_scale(Vec3::splat(128.0)),
+            Mesh2d(meshes.add(Rectangle::default())),
+            MeshMaterial2d(materials.add(Color::from(PURPLE))),
+        ))
+        .observe(tile_click_oberver);
+}
+
+fn tile_click_oberver(event: On<Pointer<Click>>) {
+    println!("clicked {:?}", event.event_target())
 }
 
 fn stretched_exp(x: f32, a: f32, b: f32) -> f32 {
