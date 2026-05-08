@@ -16,14 +16,23 @@ impl Plugin for TileMaterialPlugin {
 
 #[derive(Asset, AsBindGroup, Debug, Clone, TypePath)]
 pub struct TileMaterial {
-    #[texture(1)]
-    #[sampler(2)]
+    #[texture(0)]
+    #[sampler(1)]
     texture: Handle<Image>,
+    #[uniform(2)]
+    tint: LinearRgba,
 }
 
 impl TileMaterial {
     pub fn new(texture: Handle<Image>) -> Self {
-        Self { texture }
+        Self {
+            texture,
+            tint: Color::WHITE.into(),
+        }
+    }
+
+    pub fn set_tint(&mut self, tint: impl Into<LinearRgba>) {
+        self.tint = tint.into();
     }
 }
 
