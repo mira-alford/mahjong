@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use crate::tile::MoveCurve;
 
 pub fn layout_plugin(app: &mut App) {
-    app.add_systems(Update, layout_hand)
+    app.add_systems(FixedUpdate, layout_hand)
         .add_systems(FixedUpdate, transfer_tiles)
         .add_message::<TransferTile>();
 }
@@ -51,9 +51,9 @@ pub struct TransferTile {
 
 /// Event handler for transferring tiles from one collection to another.
 fn transfer_tiles(mut messages: MessageReader<TransferTile>, mut commands: Commands) {
-    for (&TransferTile { tile, src, dest }) in messages.read() {
+    for &TransferTile { tile, src, dest } in messages.read() {
         commands.entity(src).remove_related::<OwnedTile>(&[tile]);
-        commands.entity(dest).add_related::<OwnedTile>(&[tile]);
+        commands.entity(dest).add_one_related::<OwnedTile>(tile);
     }
 }
 
@@ -64,6 +64,7 @@ fn layout_hand(
     hand_anchors: Query<(Entity, &HandAnchor)>,
     all_tiles: Query<(&Transform, Option<&MoveCurve>)>,
     tile_collections: Query<&TileCollection>,
+    time: Res<Time>,
 ) {
     for (hand_entity, HandAnchor(anchor_pos, anchor_len)) in hand_anchors {
         let tile_iter: Vec<_> = tile_collections.iter_descendants(hand_entity).collect();
@@ -72,7 +73,7 @@ fn layout_hand(
         for (i, tile) in tile_iter.iter().enumerate() {
             // we always add offset regardless because some entities might be filling slots
             // (e.g., placeholder tile that we don't render but still affects offset)
-            let cur_offset = i as f32 * anchor_len / tile_iter.len() as f32;
+            let cur_offset = i as f32 / 14.0 * anchor_len;
 
             let Ok((tile_transform, opt_move_curve)) = all_tiles.get(*tile) else {
                 continue; // if not owned, we skip

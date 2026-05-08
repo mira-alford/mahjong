@@ -192,10 +192,11 @@ fn deal_tiles(
     }
 
     // Choose a sink;
-    let sinks: Vec<_> = sinks.iter().collect();
-    *counter += 1;
-    *counter %= sinks.len();
-    let sink = sinks[*counter];
+    // let sinks: Vec<_> = sinks.iter().collect();
+    // *counter += 1;
+    // *counter %= sinks.len();
+    // let sink = sinks[*counter];
+
     for source in sources {
         for tile_entity in tile_collections.iter_descendants(source) {
             for sink in sinks {

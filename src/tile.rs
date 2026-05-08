@@ -153,8 +153,8 @@ fn stretched_exp(x: f32, a: f32, b: f32) -> f32 {
 }
 
 fn lerp_tiles(mut commands: Commands, mut tiles: Query<(Entity, &MoveCurve, &mut Transform)>) {
+    let now = Instant::now();
     for (entity, curve, mut transform) in &mut tiles {
-        let now = Instant::now();
         let delta = now.duration_since(curve.start_time).as_secs_f32();
         let move_scalar = stretched_exp(delta, curve.a, curve.b);
         let new_pos: Vec2 = curve.start + move_scalar * (curve.end - curve.start);
