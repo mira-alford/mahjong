@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 mod tile;
-mod title_menu;
+pub mod title_menu;
 
 #[derive(Default, States, Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum GameState {
@@ -9,8 +9,16 @@ pub enum GameState {
     TitleMenu,
 }
 
-struct MahjongPlugin;
+pub struct MahjongPlugin;
+
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2d);
+}
 
 impl Plugin for MahjongPlugin {
-    fn build(&self, app: &mut App) {}
+    fn build(&self, app: &mut App) {
+        app.init_state::<GameState>()
+            .add_systems(Startup, setup)
+            .add_plugins(title_menu::title_menu_plugin);
+    }
 }
