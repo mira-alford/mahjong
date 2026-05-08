@@ -1,9 +1,11 @@
-mod tile;
+pub mod tile;
 
 use bevy::prelude::*;
 
-struct MahjongPlugin;
+pub struct MahjongPlugin;
 
 impl Plugin for MahjongPlugin {
-    fn build(&self, app: &mut App) {}
+    fn build(&self, app: &mut App) {
+        app.add_plugins(tile::TilePlugin);
+    }
 }
