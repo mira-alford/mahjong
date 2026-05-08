@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use mahjong::MahjongPlugin;
 
 fn main() {
     App::new()
@@ -10,5 +11,6 @@ fn main() {
             }),
             ..Default::default()
         }))
+        .add_plugins(MahjongPlugin)
         .run();
 }
