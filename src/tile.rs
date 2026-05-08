@@ -30,7 +30,8 @@ fn setup(
         asset_server.load("front-face-placeholder.png"),
     ));
 
-    let tile_mesh = meshes.add(Rectangle::default());
+    // 4.0 / 3.0 because the tiles are 3:4 aspect ratio
+    let tile_mesh = meshes.add(Rectangle::from_size(Vec2::new(1.0, 4.0 / 3.0)));
 
     let hand_id = spawn_hand(&mut commands);
 
