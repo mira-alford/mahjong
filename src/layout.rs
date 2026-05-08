@@ -5,7 +5,8 @@ use bevy::prelude::*;
 use crate::tile::MoveCurve;
 
 pub fn layout_plugin(app: &mut App) {
-    app.add_systems(Update, layout_hand);
+    app.add_systems(Update, layout_hand)
+        .add_message::<TransferTile>();
 }
 
 /// Vec2 denoting the position of where the hand should be rendered and a float length?
@@ -32,13 +33,28 @@ pub struct OwnedTile(pub Entity);
 /// Relationship denoting the hand that holds all of the tiles
 #[derive(Component, Debug, Default)]
 #[relationship_target(relationship = OwnedTile, linked_spawn)]
-
 pub struct TileCollection(Vec<Entity>);
+
 /// `a` and `b` params that are used in our move curve functions
 /// these dictate the way in which tiles are moved (in terms of speed)
 /// for laying out a hand
 const LAYOUT_HAND_MOVE_A: f32 = 1.0;
 const LAYOUT_HAND_MOVE_B: f32 = 3.5;
+
+#[derive(Message)]
+struct TransferTile {
+    tile: Entity,
+    src: Entity,
+    dest: Entity,
+}
+
+/// Event handler for transferring tiles from one collection to another.
+fn transfer_tiles(mut messages: MessageReader<TransferTile>, mut commands: Commands) {
+    for (&TransferTile { tile, src, dest }) in messages.read() {
+        commands.entity(src).remove_related::<OwnedTile>(&[tile]);
+        commands.entity(dest).add_related::<OwnedTile>(&[tile]);
+    }
+}
 
 /// Goes through the hand collections that have a hand anchor and puts the appropriate [`MoveCurve`]
 /// on the tile based on where it needs to go relative to the [`HandAnchor`].
