@@ -3,10 +3,8 @@ use std::time::{Duration, Instant};
 
 use crate::{
     GameState,
-    tile::{
-        DiscardAnchor, HandAnchor, OwnedTile, TileCollection, UnusedAnchor, WallAnchor,
-        render::TileMaterial, spawn_tile,
-    },
+    layout::{DiscardAnchor, HandAnchor, OwnedTile, TileCollection, UnusedAnchor, WallAnchor},
+    tile::{render::TileMaterial, spawn_tile},
 };
 
 #[derive(Resource)]

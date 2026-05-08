@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 
+pub mod layout;
 pub mod level;
 pub mod tile;
 pub mod tile_kind;
