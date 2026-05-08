@@ -1,6 +1,8 @@
 #![allow(clippy::type_complexity)]
 
+pub mod level;
 pub mod tile;
+pub mod tile_kind;
 pub mod title_menu;
 
 use bevy::prelude::*;
@@ -11,6 +13,7 @@ pub struct MahjongPlugin;
 pub enum GameState {
     #[default]
     TitleMenu,
+    Game,
 }
 
 fn setup(mut commands: Commands) {
@@ -22,6 +25,7 @@ impl Plugin for MahjongPlugin {
         app.init_state::<GameState>()
             .add_systems(Startup, setup)
             .add_plugins((MeshPickingPlugin, tile::TilePlugin))
-            .add_plugins(title_menu::title_menu_plugin);
+            .add_plugins(title_menu::title_menu_plugin)
+            .add_plugins(level::level_plugin);
     }
 }

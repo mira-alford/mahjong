@@ -1,6 +1,8 @@
 use bevy::{color::palettes::css::PURPLE, prelude::*};
 use std::time::Instant;
 
+use crate::tile_kind::{Suit, TileKind};
+
 pub struct TilePlugin;
 
 impl Plugin for TilePlugin {
@@ -25,66 +27,33 @@ fn setup(
 
     let tile_id = spawn_tile(&mut commands, &tile_face_material, &tile_mesh);
     commands.entity(tile_id).insert(OwnedTile(hand_id)); // i.e., tile is 'owned' by hand
-    let tile_id = spawn_tile(&mut commands, &tile_face_material, &tile_mesh);
-    commands.entity(tile_id).insert(OwnedTile(hand_id)); // i.e., tile is 'owned' by hand
-    let tile_id = spawn_tile(&mut commands, &tile_face_material, &tile_mesh);
-    commands.entity(tile_id).insert(OwnedTile(hand_id)); // i.e., tile is 'owned' by hand
-    let tile_id = spawn_tile(&mut commands, &tile_face_material, &tile_mesh);
-    commands.entity(tile_id).insert(OwnedTile(hand_id)); // i.e., tile is 'owned' by hand
 }
 
 /// Vec2 denoting the position of where the hand should be rendered and a float length?
 #[derive(Component, Debug)]
-struct HandAnchor(Vec2, f32);
+pub struct HandAnchor(pub Vec2, pub f32);
+
+/// Vec2 denoting the width/height of the walls rect (from the center).
+#[derive(Component, Debug)]
+pub struct WallAnchor(pub Vec2);
 
 /// Vec2 denoting the position of where the discord pile should be rendered
 #[derive(Component, Debug)]
-struct DiscardAnchor(Vec2);
+pub struct DiscardAnchor(pub Vec2);
+
+/// All the tiles atop eachother in a glorious heap.
+#[derive(Component, Debug)]
+pub struct UnusedAnchor(pub Vec2);
 
 /// Relationship that points from the tile to the 'owner' hand
 #[derive(Component, Debug)]
 #[relationship(relationship_target = TileCollection)]
-struct OwnedTile(pub Entity);
+pub struct OwnedTile(pub Entity);
 
 /// Relationship denoting the hand that holds all of the tiles
 #[derive(Component, Debug, Default)]
 #[relationship_target(relationship = OwnedTile, linked_spawn)]
-struct TileCollection(Vec<Entity>);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum TileKind {
-    Suit(Suit),
-    Honor(Honor),
-}
-
-/// suits each with associated number between 1 and 9
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Suit {
-    Characters(u8),
-    Circle(u8),
-    Bamboo(u8),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Honor {
-    Wind(Wind),
-    Dragon(Dragon),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Wind {
-    East,
-    South,
-    West,
-    North,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Dragon {
-    Red,
-    Green,
-    White,
-}
+pub struct TileCollection(Vec<Entity>);
 
 #[derive(Component, Debug)]
 struct Tile {
@@ -132,7 +101,7 @@ pub fn spawn_hand(commands: &mut Commands) -> Entity {
 }
 
 /// spawns a tile with a specified front facing material, and a mesh
-fn spawn_tile(
+pub fn spawn_tile(
     commands: &mut Commands,
     material: &Handle<ColorMaterial>,
     mesh: &Handle<Mesh>,
@@ -141,13 +110,6 @@ fn spawn_tile(
         .spawn((
             TileFaceMaterial(material.clone()),
             ShownFace::default(),
-            MoveCurve {
-                start: Vec2::ZERO,
-                end: Vec2::new(500.0, 500.0),
-                start_time: Instant::now(),
-                a: 1.0,
-                b: 3.5,
-            },
             Transform::default().with_scale(Vec3::splat(128.0)),
             // TODO: this should probably be done with a resource specified when plugin made
             Tile {

@@ -71,12 +71,13 @@ fn spawn_title_menu(mut commands: Commands) {
 fn menu_button_system(
     interactions: Query<(&Interaction, &MenuButtonAction), (Changed<Interaction>, With<Button>)>,
     mut exit: MessageWriter<AppExit>,
+    mut next_state: ResMut<NextState<GameState>>,
 ) {
     for (interaction, action) in interactions {
         if *interaction == Interaction::Pressed {
             match action {
                 MenuButtonAction::Play => {
-                    println!("Play!");
+                    next_state.set(GameState::Game);
                 }
                 MenuButtonAction::Exit => {
                     exit.write(AppExit::Success);
