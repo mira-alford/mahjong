@@ -1,5 +1,5 @@
-use bevy::{color::palettes::css::PURPLE, prelude::*};
-use std::time::{Duration, Instant};
+use bevy::prelude::*;
+use std::time::Duration;
 
 use crate::{
     GameState,
@@ -76,10 +76,7 @@ fn init_level(
     mut next_state: ResMut<NextState<LevelState>>,
     asset_server: Res<AssetServer>,
 ) {
-    let tile_face_material = materials.add(TileMaterial::new(
-        asset_server.load("front-face-placeholder.png"),
-    ));
-    let tile_mesh = meshes.add(Rectangle::default());
+    let tile_mesh = meshes.add(Rectangle::from_size(Vec2::new(1.0, 4.0 / 3.0)));
 
     // Spawn in the unused pile.
     let unused_id = commands
@@ -89,7 +86,12 @@ fn init_level(
     // Just hard spawning 32 unused tiles for now :)
     // TODO: Eventually replace this
     for _ in 0..32 {
-        let tile_id = spawn_tile(&mut commands, &tile_face_material, &tile_mesh);
+        let tile_id = spawn_tile(
+            &mut commands,
+            &tile_mesh,
+            &mut materials,
+            asset_server.clone(),
+        );
         commands.entity(tile_id).insert(OwnedTile(unused_id));
     }
 

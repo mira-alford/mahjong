@@ -1,6 +1,6 @@
 pub mod render;
 
-use bevy::prelude::*;
+use bevy::{picking::hover::Hovered, prelude::*};
 use std::time::Instant;
 
 use self::render::{TileMaterial, TileMaterialPlugin};
@@ -11,21 +11,8 @@ pub struct TilePlugin;
 impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(TileMaterialPlugin {})
-            .add_systems(Startup, setup)
             .add_systems(Update, (lerp_tiles, update_tile_materials));
     }
-}
-
-fn setup(
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<TileMaterial>>,
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
-    // TODO: make this editiable on the plugin
-    commands.insert_resource(TileBackMaterial(materials.add(TileMaterial::new(
-        asset_server.load("back-face-placeholder.png"),
-    ))));
 }
 
 #[derive(Component, Debug)]
@@ -37,8 +24,8 @@ struct Tile {
 #[derive(Component)]
 struct TileFaceMaterial(Handle<TileMaterial>);
 
-// Shared resource for the back of tiles (since all tiles are same on back)
-#[derive(Resource)]
+/// material for tiles face
+#[derive(Component)]
 struct TileBackMaterial(Handle<TileMaterial>);
 
 /// the currently up facing face of a tile, i.e. the face you can see
@@ -65,12 +52,21 @@ pub struct MoveCurve {
 /// spawns a tile with a specified front facing material, and a mesh
 pub fn spawn_tile(
     commands: &mut Commands,
-    material: &Handle<TileMaterial>,
     mesh: &Handle<Mesh>,
+    materials: &mut ResMut<Assets<TileMaterial>>,
+    asset_server: AssetServer,
 ) -> Entity {
+    let face_material = materials.add(TileMaterial::new(
+        asset_server.load("front-face-placeholder.png"),
+    ));
+    let back_material = materials.add(TileMaterial::new(
+        asset_server.load("back-face-placeholder.png"),
+    ));
+
     commands
         .spawn((
-            TileFaceMaterial(material.clone()),
+            TileFaceMaterial(face_material.clone()),
+            TileBackMaterial(back_material),
             ShownFace::default(),
             Transform::default().with_scale(Vec3::splat(128.0)),
             Tile {
@@ -78,9 +74,11 @@ pub fn spawn_tile(
             },
             // TODO: this should probably be done with a resource specified when plugin made
             Mesh2d(mesh.clone()),
-            MeshMaterial2d(material.clone()),
+            MeshMaterial2d(face_material),
         ))
         .observe(tile_click_oberver)
+        .observe(tile_hover_observer)
+        .observe(tile_unhover_observer)
         .id()
 }
 
@@ -89,16 +87,16 @@ fn update_tile_materials(
         (
             &ShownFace,
             &TileFaceMaterial,
+            &TileBackMaterial,
             &mut MeshMaterial2d<TileMaterial>,
         ),
         Changed<ShownFace>,
     >,
-    bottom_material: Res<TileBackMaterial>,
 ) {
-    for (face, top_material, mut material) in query.iter_mut() {
+    for (face, top_material, back_material, mut material) in query.iter_mut() {
         match face.0 {
             TileFace::Top => material.0 = top_material.0.clone(),
-            TileFace::Bottom => material.0 = bottom_material.0.clone(),
+            TileFace::Bottom => material.0 = back_material.0.clone(),
         }
     }
 }
@@ -116,6 +114,38 @@ fn tile_click_oberver(event: On<Pointer<Click>>, mut query: Query<&mut ShownFace
         TileFace::Top => face.0 = TileFace::Bottom,
         TileFace::Bottom => face.0 = TileFace::Top,
     }
+}
+
+fn tile_hover_observer(
+    event: On<Pointer<Over>>,
+    query: Query<&MeshMaterial2d<TileMaterial>>,
+    mut materials: ResMut<Assets<TileMaterial>>,
+) {
+    let event_target = event.event_target();
+
+    let material_handle = query
+        .get(event_target)
+        .expect("hovered tile did not have a meshmaterial2d componenet");
+
+    let material = materials.get_mut(material_handle).unwrap(); // probably impossible to hit this unwrap
+
+    material.set_tint(Color::linear_rgba(0.7, 0.7, 0.7, 1.0))
+}
+
+fn tile_unhover_observer(
+    event: On<Pointer<Out>>,
+    query: Query<&MeshMaterial2d<TileMaterial>>,
+    mut materials: ResMut<Assets<TileMaterial>>,
+) {
+    let event_target = event.event_target();
+
+    let material_handle = query
+        .get(event_target)
+        .expect("hovered tile did not have a meshmaterial2d componenet");
+
+    let material = materials.get_mut(material_handle).unwrap(); // probably impossible to hit this unwrap
+
+    material.set_tint(Color::WHITE)
 }
 
 fn stretched_exp(x: f32, a: f32, b: f32) -> f32 {
