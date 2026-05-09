@@ -40,8 +40,8 @@ pub struct RotateTile {
 }
 
 #[derive(Component, Debug)]
-struct Tile {
-    kind: TileKind,
+pub struct Tile {
+    pub kind: TileKind,
 }
 
 #[derive(Bundle)]
