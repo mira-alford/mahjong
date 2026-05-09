@@ -1,9 +1,11 @@
 /// enums for the different kind of tiles avalible, TileKind is the root
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum TileKind {
     Number(Suit, u8),
     Honor(Honor),
+    #[default]
+    Blank,
 }
 
 /// suits each with associated number between 1 and 9

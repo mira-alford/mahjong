@@ -9,7 +9,11 @@ use crate::{
         WallAnchor,
     },
     player::{ActorState, PlayerLoadout},
-    tile::{MoveCurve, TILE_HEIGHT, TILE_WIDTH, render::TileMaterial, spawn_tile},
+    tile::{
+        MoveCurve, SharedTileData, TILE_HEIGHT, TILE_WIDTH, TileBundle,
+        kind::{Dragon, Honor, TileKind},
+        render::TileMaterial,
+    },
 };
 
 #[derive(Resource)]
@@ -81,9 +85,8 @@ fn init_level(
     mut next_state: ResMut<NextState<LevelState>>,
     player_loadout: Res<PlayerLoadout>,
     asset_server: Res<AssetServer>,
+    shared_tile_data: Res<SharedTileData>,
 ) {
-    let tile_mesh = meshes.add(Rectangle::from_size(Vec2::new(TILE_WIDTH, TILE_HEIGHT)));
-
     // Spawn in the unused pile.
     let unused_id = commands
         .spawn((UnusedAnchor(Vec2::ZERO), TileCollection::default()))
@@ -92,12 +95,14 @@ fn init_level(
     // Just hard spawning 32 unused tiles for now :)
     // TODO: Eventually replace this
     for _ in 0..136 {
-        let tile_id = spawn_tile(
-            &mut commands,
-            &tile_mesh,
-            &mut materials,
-            asset_server.clone(),
-        );
+        let tile_id = commands
+            .spawn(TileBundle::new(
+                &mut materials,
+                asset_server.clone(),
+                shared_tile_data.clone(),
+                TileKind::Blank,
+            ))
+            .id();
         commands.entity(tile_id).insert(OwnedTile(unused_id));
     }
 

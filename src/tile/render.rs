@@ -1,7 +1,7 @@
 use bevy::{
     prelude::*,
     render::render_resource::AsBindGroup,
-    sprite_render::{Material2d, Material2dPlugin},
+    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
 };
 
 const SHADER_PATH: &str = "shaders/tile_shader.wgsl";
@@ -16,18 +16,28 @@ impl Plugin for TileMaterialPlugin {
 
 #[derive(Asset, AsBindGroup, Debug, Clone, TypePath)]
 pub struct TileMaterial {
-    #[texture(0)]
-    #[sampler(1)]
-    texture: Handle<Image>,
-    #[uniform(2)]
+    #[sampler(0)]
+    #[texture(1)]
+    front_texture: Handle<Image>,
+    #[texture(2)]
+    back_texture: Handle<Image>,
+    #[texture(3)]
+    overlay_texture: Option<Handle<Image>>,
+    #[uniform(4)]
     tint: LinearRgba,
 }
 
 impl TileMaterial {
-    pub fn new(texture: Handle<Image>) -> Self {
+    pub fn new(
+        front_texture: Handle<Image>,
+        back_texture: Handle<Image>,
+        overlay_texture: Option<Handle<Image>>,
+    ) -> Self {
         Self {
-            texture,
             tint: Color::WHITE.into(),
+            front_texture,
+            back_texture,
+            overlay_texture,
         }
     }
 
@@ -39,5 +49,9 @@ impl TileMaterial {
 impl Material2d for TileMaterial {
     fn fragment_shader() -> bevy::shader::ShaderRef {
         SHADER_PATH.into()
+    }
+
+    fn alpha_mode(&self) -> bevy::sprite_render::AlphaMode2d {
+        AlphaMode2d::Blend
     }
 }
