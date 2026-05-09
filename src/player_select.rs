@@ -1,7 +1,7 @@
 //! The player select screen
 use bevy::prelude::*;
 
-use crate::{GameState, player::PlayerLoadout};
+use crate::{GameState, model::player::PlayerLoadout};
 
 pub fn player_select_plugin(app: &mut App) {
     app.insert_resource(PlayerLoadout::default_player())
