@@ -130,23 +130,13 @@ fn layout_discard(
     mut move_tiles_writer: MessageWriter<MoveTile>,
     mut flip_tiles_writer: MessageWriter<FlipTile>,
 ) {
-    // replace these with pixel width computed values
-    const TEMPORARY_DEBUGGING_CARD_WIDTH: f32 = 130f32;
-    const TEMPORARY_DEBUGGING_CARD_HEIGHT: f32 = 180f32;
-
     for (discard_entity, &DiscardAnchor(anchorpos, discard_layout_width, player_kind)) in
         discard_anchors
     {
         let (width, height) = match player_kind {
             // todo flip the ai's (playerside up) cards upside down (requires transform stuff)
-            Owner::Player => (
-                TEMPORARY_DEBUGGING_CARD_WIDTH,
-                TEMPORARY_DEBUGGING_CARD_HEIGHT.neg(),
-            ),
-            Owner::AI => (
-                TEMPORARY_DEBUGGING_CARD_WIDTH.neg(),
-                TEMPORARY_DEBUGGING_CARD_HEIGHT,
-            ),
+            Owner::Player => (TILE_WIDTH, TILE_HEIGHT.neg()),
+            Owner::AI => (TILE_WIDTH.neg(), TILE_HEIGHT),
         };
 
         for (ix, tile) in tile_collections
