@@ -7,7 +7,7 @@ use crate::{
         DiscardAnchor, HandAnchor, OwnedTile, PlayerSide, Slot, TileCollection, TransferTile,
         UnusedAnchor, WallAnchor,
     },
-    tile::{MoveCurve, render::TileMaterial, spawn_tile},
+    tile::{MoveCurve, TILE_HEIGHT, TILE_WIDTH, render::TileMaterial, spawn_tile},
 };
 
 #[derive(Resource)]
@@ -47,7 +47,7 @@ enum Turn {
 }
 
 #[derive(Component, Default)]
-enum Owner {
+pub enum Owner {
     #[default]
     Player,
     AI,
@@ -56,7 +56,7 @@ enum Owner {
 pub fn level_plugin(app: &mut App) {
     app.init_resource::<Turn>()
         .insert_resource(TransitionTimer(Timer::new(
-            Duration::from_millis(100),
+            Duration::from_millis(1),
             TimerMode::Repeating,
         )))
         .add_sub_state::<LevelState>()
@@ -79,7 +79,7 @@ fn init_level(
     mut next_state: ResMut<NextState<LevelState>>,
     asset_server: Res<AssetServer>,
 ) {
-    let tile_mesh = meshes.add(Rectangle::from_size(Vec2::new(1.0, 4.0 / 3.0)));
+    let tile_mesh = meshes.add(Rectangle::from_size(Vec2::new(TILE_WIDTH, TILE_HEIGHT)));
 
     // Spawn in the unused pile.
     let unused_id = commands
