@@ -145,10 +145,10 @@ impl TileBundle {
 
 /// the currently up facing face of a tile, i.e. the face you can see
 #[derive(Component, Default)]
-struct ShownFace(TileFace);
+pub struct ShownFace(pub TileFace);
 
 #[derive(Default)]
-enum TileFace {
+pub enum TileFace {
     #[default]
     Top,
     Bottom,
