@@ -7,10 +7,10 @@ use rand::rngs::{SmallRng, StdRng};
 use rand::seq::{IndexedRandom, SliceRandom};
 use rand::{RngExt, SeedableRng};
 
-use crate::tile::MoveCurve;
+use crate::tile::{MoveCurve, MoveTile};
 
 pub fn layout_plugin(app: &mut App) {
-    app.add_systems(FixedUpdate, layout_hand)
+    app.add_systems(FixedUpdate, (layout_hand, layout_wall))
         .add_systems(FixedUpdate, transfer_tiles)
         .add_message::<TransferTile>();
 }
@@ -48,8 +48,8 @@ pub struct Slot(pub u8);
 /// `a` and `b` params that are used in our move curve functions
 /// these dictate the way in which tiles are moved (in terms of speed)
 /// for laying out a hand
-const LAYOUT_HAND_MOVE_A: f32 = 1.0;
-const LAYOUT_HAND_MOVE_B: f32 = 3.5;
+pub const LAYOUT_HAND_MOVE_A: f32 = 1.0;
+pub const LAYOUT_HAND_MOVE_B: f32 = 3.5;
 
 #[derive(Message)]
 pub struct TransferTile {
@@ -69,56 +69,26 @@ fn transfer_tiles(mut messages: MessageReader<TransferTile>, mut commands: Comma
 /// Goes through the hand collections that have a hand anchor and puts the appropriate [`MoveCurve`]
 /// on the tile based on where it needs to go relative to the [`HandAnchor`].
 fn layout_hand(
-    mut commands: Commands,
     hand_anchors: Query<(Entity, &HandAnchor)>,
-    all_tiles: Query<(&Transform, Option<&MoveCurve>, &Slot)>,
     tile_collections: Query<&TileCollection>,
+    all_tiles: Query<&Slot>,
+    mut move_tiles_writer: MessageWriter<MoveTile>,
 ) {
     for (hand_entity, HandAnchor(anchor_pos, anchor_len)) in hand_anchors {
         let tile_iter: Vec<_> = tile_collections.iter_descendants(hand_entity).collect();
 
         // collect all of the tiles that we own (filtering out non-tiles)
         for tile in tile_iter.iter() {
-            // we always add offset regardless because some entities might be filling slots
-            // (e.g., placeholder tile that we don't render but still affects offset)
-
-            let Ok((tile_transform, opt_move_curve, curslot)) = all_tiles.get(*tile) else {
+            let Ok(curslot) = all_tiles.get(*tile) else {
                 continue; // if not owned, we skip
             };
             let cur_offset = curslot.0 as f32 / 14.0 * anchor_len;
 
-            // calculate where tile should be
             let new_tile_pos = anchor_pos + Vec2::X * cur_offset;
-            let existing_tile_pos = tile_transform.translation.xy();
-
-            let pos_delta = (existing_tile_pos - new_tile_pos).length();
-
-            // if position change is super small, don't bother moving
-            if pos_delta < 1e-4 {
-                continue;
-            }
-
-            // @Jackson, can you fix this :)))))))
-            if let Some(move_curve) = opt_move_curve {
-                let existing_tile_pos = move_curve.end;
-
-                let pos_delta = (existing_tile_pos - new_tile_pos).length();
-
-                // if position change is super small, don't bother moving
-                if pos_delta < 1e-4 {
-                    continue;
-                }
-            }
-
-            let move_curve = MoveCurve {
-                start: existing_tile_pos,
-                end: new_tile_pos,
-                start_time: Instant::now(),
-                a: LAYOUT_HAND_MOVE_A,
-                b: LAYOUT_HAND_MOVE_B,
-            };
-
-            commands.entity(*tile).insert(move_curve);
+            move_tiles_writer.write(MoveTile {
+                id: *tile,
+                dest: new_tile_pos,
+            });
         }
     }
 }
@@ -157,24 +127,31 @@ fn layout_discard(
 
 fn layout_wall(
     wall_anchor: Query<(Entity, &WallAnchor)>,
-    all_tiles: Query<(&Transform, Option<&MoveCurve>)>,
     tile_collections: Query<&TileCollection>,
+    mut move_tiles_writer: MessageWriter<MoveTile>,
 ) {
     let mut rng = StdRng::seed_from_u64(67); // -\_o_o_/^
-    let Ok((wall_entity, wall_anchor)) = wall_anchor.single() else {
-        error!("Expected 1 wall anchor");
+    let Some((wall_entity, wall_anchor)) = wall_anchor.iter().next() else {
         return;
     };
 
-    let mut positions = (0..(wall_anchor.1.x))
+    let mut rows = (0..(wall_anchor.1.x))
         .map(|i| {
             i as f32 * wall_anchor.0.x as f32 / wall_anchor.1.x as f32 - (wall_anchor.0.x / 2.0)
         })
-        .cartesian_product((0..wall_anchor.1.y).map(|i| {
-            i as f32 * wall_anchor.0.y as f32 / wall_anchor.1.y as f32 - (wall_anchor.0.y / 2.0)
-        }))
-        .map(|(x, y)| Vec2::new(x, y))
+        .cartesian_product([-wall_anchor.0.y, wall_anchor.0.y].into_iter())
+        .map(|(x, y)| Vec2::new(x, y) / 2.0)
         .collect_vec();
+    let mut cols = (0..(wall_anchor.1.y))
+        .map(|i| {
+            i as f32 * wall_anchor.0.y as f32 / wall_anchor.1.y as f32 - (wall_anchor.0.y / 2.0)
+        })
+        .cartesian_product([-wall_anchor.0.x, wall_anchor.0.x].into_iter())
+        .map(|(y, x)| Vec2::new(x, y) / 2.0)
+        .collect_vec();
+
+    rows.append(&mut cols);
+    let mut positions = rows;
 
     positions.shuffle(&mut rng);
     let mut i = 0;
@@ -182,5 +159,10 @@ fn layout_wall(
     for tile_entity in tile_collections.iter_descendants(wall_entity) {
         let pos = positions.get(i).unwrap();
         i = (i + 1) % positions.len();
+
+        move_tiles_writer.write(MoveTile {
+            id: tile_entity,
+            dest: *pos,
+        });
     }
 }
