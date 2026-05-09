@@ -1,6 +1,11 @@
 use std::time::Instant;
 
 use bevy::prelude::*;
+use itertools::Itertools;
+use rand::distr::{Distribution, Uniform};
+use rand::rngs::{SmallRng, StdRng};
+use rand::seq::{IndexedRandom, SliceRandom};
+use rand::{RngExt, SeedableRng};
 
 use crate::tile::MoveCurve;
 
@@ -15,8 +20,9 @@ pub fn layout_plugin(app: &mut App) {
 pub struct HandAnchor(pub Vec2, pub f32);
 
 /// Vec2 denoting the width/height of the walls rect (from the center).
+/// IVec2 denoting the number of tiles on the x and y
 #[derive(Component, Debug)]
-pub struct WallAnchor(pub Vec2);
+pub struct WallAnchor(pub Vec2, pub IVec2);
 
 /// Vec2 denoting the position of where the discord pile should be rendered
 #[derive(Component, Debug)]
@@ -64,7 +70,6 @@ fn layout_hand(
     hand_anchors: Query<(Entity, &HandAnchor)>,
     all_tiles: Query<(&Transform, Option<&MoveCurve>)>,
     tile_collections: Query<&TileCollection>,
-    time: Res<Time>,
 ) {
     for (hand_entity, HandAnchor(anchor_pos, anchor_len)) in hand_anchors {
         let tile_iter: Vec<_> = tile_collections.iter_descendants(hand_entity).collect();
@@ -112,5 +117,35 @@ fn layout_hand(
 
             commands.entity(*tile).insert(move_curve);
         }
+    }
+}
+
+fn layout_wall(
+    wall_anchor: Query<(Entity, &WallAnchor)>,
+    all_tiles: Query<(&Transform, Option<&MoveCurve>)>,
+    tile_collections: Query<&TileCollection>,
+) {
+    let mut rng = StdRng::seed_from_u64(67); // -\_o_o_/^
+    let Ok((wall_entity, wall_anchor)) = wall_anchor.single() else {
+        error!("Expected 1 wall anchor");
+        return;
+    };
+
+    let mut positions = (0..(wall_anchor.1.x))
+        .map(|i| {
+            i as f32 * wall_anchor.0.x as f32 / wall_anchor.1.x as f32 - (wall_anchor.0.x / 2.0)
+        })
+        .cartesian_product((0..wall_anchor.1.y).map(|i| {
+            i as f32 * wall_anchor.0.y as f32 / wall_anchor.1.y as f32 - (wall_anchor.0.y / 2.0)
+        }))
+        .map(|(x, y)| Vec2::new(x, y))
+        .collect_vec();
+
+    positions.shuffle(&mut rng);
+    let mut i = 0;
+
+    for tile_entity in tile_collections.iter_descendants(wall_entity) {
+        let pos = positions.get(i).unwrap();
+        i = (i + 1) % positions.len();
     }
 }

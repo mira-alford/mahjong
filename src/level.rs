@@ -100,7 +100,10 @@ fn init_level(
 
     // Spawn in the wall!
     // TODO: wall resizing system that uses window size
-    commands.spawn((WallAnchor(Vec2::ONE * 800.0), TileCollection::default()));
+    commands.spawn((
+        WallAnchor(Vec2::ONE * 800.0, IVec2::ONE * 13),
+        TileCollection::default(),
+    ));
 
     // Spawn in 2 hands:
     // TODO: hand resizing system that uses window size
