@@ -82,6 +82,7 @@ pub struct ActorState {
 }
 
 /// A "set of tiles".
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TileSet {
     Sequence { suit: Suit, lowest_number: u8 },
     Triple(TileKind),
@@ -158,6 +159,83 @@ impl ActorState {
         res
     }
 
+    /// Returns a bool indicating if the player can construct a winning hand with the tiles they
+    /// hold (including the drawn tile - if it is None, this function will return false).
+    ///
+    /// This function is not correct. The reason it is not correct is because a correct solution
+    /// would cause [this](https://github.com/bevyengine/bevy/issues/16002) issue.
+    ///
+    /// fucking bevy moment
+    pub fn has_winning_hand(&self) -> bool {
+        let Some(drawn) = self.drawn_tile else {
+            return false;
+        };
+        let mut hand = self.hand.clone();
+        hand.push(drawn);
+        hand.sort();
+
+        let mut sets = Vec::new();
+
+        loop {
+            if hand.len() == 0 {
+                break;
+            }
+
+            if hand.len() == 1 {
+                return false;
+            }
+
+            if hand.len() >= 3 {
+                // Attempt to take a triple, then attempt to take a set
+                if hand[0] == hand[1] && hand[1] == hand[2] {
+                    sets.push(TileSet::Triple(hand[0]));
+                    for _ in 0..3 {
+                        hand.remove(0);
+                    }
+                    continue;
+                }
+
+                if let TileKind::Number(s1, n1) = hand[0]
+                    && let TileKind::Number(s2, n2) = hand[1]
+                    && let TileKind::Number(s3, n3) = hand[2]
+                {
+                    if s1 == s2 && s2 == s3 && n1 == n2 - 1 && n2 == n3 - 1 {
+                        sets.push(TileSet::Sequence {
+                            suit: s1,
+                            lowest_number: n1,
+                        });
+                        for _ in 0..3 {
+                            hand.remove(0);
+                        }
+                        continue;
+                    }
+                }
+            }
+
+            if hand.len() >= 2 {
+                if hand[0] == hand[1] {
+                    sets.push(TileSet::Pair(hand[0]));
+                    for _ in 0..2 {
+                        hand.remove(0);
+                    }
+                    continue;
+                }
+            }
+        }
+
+        let mut shape = sets
+            .iter()
+            .map(|s| match s {
+                TileSet::Sequence { .. } => 3,
+                TileSet::Triple(..) => 3,
+                TileSet::Pair(..) => 2,
+            })
+            .collect::<Vec<i32>>();
+
+        shape.sort();
+        (shape == vec![2, 3, 3, 3, 3]) || (shape == vec![2, 2, 2, 2, 2, 2, 2])
+    }
+
     /// Discards a tile from the hand, or from the drawn tile (if it exists).
     ///
     /// The location should not be Drawn if there is no drawn tile.
@@ -173,5 +251,36 @@ impl ActorState {
             }
             _ => unreachable!(),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        model::player::PlayerLoadout,
+        tile::kind::{Dragon, Honor, Suit, TileKind},
+    };
+
+    #[test]
+    fn test_winning_hand() {
+        let mut player = PlayerLoadout::default_player().actor_state(vec![
+            TileKind::Number(Suit::Bamboo, 1),
+            TileKind::Number(Suit::Bamboo, 1),
+            TileKind::Number(Suit::Bamboo, 1),
+            TileKind::Number(Suit::Circle, 1),
+            TileKind::Number(Suit::Circle, 1),
+            TileKind::Number(Suit::Circle, 1),
+            TileKind::Number(Suit::Bamboo, 4),
+            TileKind::Number(Suit::Bamboo, 5),
+            TileKind::Number(Suit::Bamboo, 6),
+            TileKind::Honor(Honor::Dragon(Dragon::Red)),
+            TileKind::Honor(Honor::Dragon(Dragon::Red)),
+            TileKind::Honor(Honor::Dragon(Dragon::Red)),
+            TileKind::Honor(Honor::Dragon(Dragon::White)),
+        ]);
+
+        player.draw_tile(TileKind::Honor(Honor::Dragon(Dragon::White)));
+
+        assert!(player.has_winning_hand());
     }
 }
