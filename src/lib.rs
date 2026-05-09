@@ -26,10 +26,8 @@ fn setup(mut commands: Commands) {
 
 impl Plugin for MahjongPlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<GameState>()
-            .add_systems(Startup, setup)
+        app.add_systems(Startup, setup)
             .add_plugins((
-                MeshPickingPlugin,
                 DefaultPlugins.set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "mahjong".into(),
@@ -39,12 +37,14 @@ impl Plugin for MahjongPlugin {
                     }),
                     ..Default::default()
                 }),
+                MeshPickingPlugin,
                 tile::TilePlugin,
                 title_menu::title_menu_plugin,
                 player_select::player_select_plugin,
                 level::level_plugin,
                 events::event_plugin,
                 layout::layout_plugin,
-            ));
+            ))
+            .init_state::<GameState>();
     }
 }
