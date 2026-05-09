@@ -257,12 +257,13 @@ pub fn tile_click_oberver(
     // state transition
     mut next_state: ResMut<NextState<LevelState>>,
 ) {
+    let event_target = event.event_target();
+    info!(target=?event_target, "clicked tile");
+
     if matches!(game_model.turn, Owner::AI) {
         info!("don't do anything on the AI's turn, so we quit early :)");
         return;
     }
-
-    let event_target = event.event_target();
 
     let Some(ancestor) = tile_collections.iter_ancestors(event_target).next() else {
         warn!("Unable to find ancestor for clicked tile");
@@ -280,11 +281,28 @@ pub fn tile_click_oberver(
     };
 
     match &level_state.get() {
-        LevelState::Draw => draw_tile(anchor, owner.copied(), game_model.into(), draw_messages, next_state),
-        LevelState::Discard => {
-            discard_tile(anchor, owner.copied(), *tile, game_model.into(), discard_messages, next_state)
-        }
-        LevelState::Play => play_tile(anchor, owner.copied(), game_model, play_tile_messages, next_state),
+        LevelState::Draw => draw_tile(
+            anchor,
+            owner.copied(),
+            game_model.into(),
+            draw_messages,
+            next_state,
+        ),
+        LevelState::Discard => discard_tile(
+            anchor,
+            owner.copied(),
+            *tile,
+            game_model.into(),
+            discard_messages,
+            next_state,
+        ),
+        LevelState::Play => play_tile(
+            anchor,
+            owner.copied(),
+            game_model,
+            play_tile_messages,
+            next_state,
+        ),
         _ => (),
     };
 }

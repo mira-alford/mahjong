@@ -159,7 +159,11 @@ pub fn draw_tile(
         }
     };
 
-    messages.write(DrawTileMsg(draw_location));
+    let msg = DrawTileMsg(draw_location);
+    info!(msg=?msg, "sending message");
+    messages.write(msg);
+
+    info!(state=?LevelState::Discard, "transitioning state");
     next_state.set(LevelState::Discard);
 }
 pub fn discard_tile(
@@ -183,7 +187,11 @@ pub fn discard_tile(
         }
     };
 
-    messages.write(DiscardTileMsg(discard_location, tile.kind));
+    let msg = DiscardTileMsg(discard_location, tile.kind);
+    info!(msg=?msg, "sending message");
+    messages.write(msg);
+
+    info!(state=?LevelState::Play, "transitioning state");
     next_state.set(LevelState::Play);
 }
 pub fn play_tile(
@@ -203,7 +211,9 @@ pub fn play_tile(
         }
     };
 
-    messages.write(PlayTilesMsg(owner));
+    let msg = PlayTilesMsg(owner);
+    info!(msg=?msg, "sending message");
+    messages.write(msg);
 
     // we swap the player's turn
     state.turn = match &state.turn {
@@ -212,5 +222,6 @@ pub fn play_tile(
     };
 
     // go back to the draw state
+    info!(state=?LevelState::Draw, "transitioning state");
     next_state.set(LevelState::Draw);
 }

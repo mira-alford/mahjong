@@ -310,10 +310,12 @@ fn deal_tiles(
                 });
                 return;
             }
+            info!("going to the draw state");
             next_state.set(LevelState::Draw);
             return;
         }
     }
+    info!("going to the build wall state");
     next_state.set(LevelState::BuildWall);
 
     // If both players hands are at least size 14, we go to the draw state.
