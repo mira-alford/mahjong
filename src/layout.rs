@@ -10,7 +10,7 @@ use rand::seq::{IndexedRandom, SliceRandom};
 use rand::{RngExt, SeedableRng};
 
 use crate::level::Owner;
-use crate::tile::{FlipTile, MoveCurve, MoveTile, TILE_HEIGHT, TILE_WIDTH};
+use crate::tile::{MoveCurve, MoveTile, RotateTile, TILE_HEIGHT, TILE_WIDTH};
 
 pub fn layout_plugin(app: &mut App) {
     app.add_systems(
@@ -25,7 +25,7 @@ pub fn layout_plugin(app: &mut App) {
     )
     .add_systems(FixedUpdate, transfer_tiles)
     .add_message::<TransferTile>()
-    .add_message::<FlipTile>();
+    .add_message::<RotateTile>();
 }
 
 /// Vec2 denoting the position of where the hand should be rendered and a float length?
@@ -86,7 +86,7 @@ fn layout_hand(
     tile_collections: Query<&TileCollection>,
     all_tiles: Query<&Slot>,
     mut move_tiles_writer: MessageWriter<MoveTile>,
-    mut flip_tiles_writer: MessageWriter<FlipTile>,
+    mut flip_tiles_writer: MessageWriter<RotateTile>,
 ) {
     for (hand_entity, &HandAnchor(anchor_pos, owner)) in hand_anchors {
         let tile_iter: Vec<_> = tile_collections.iter_descendants(hand_entity).collect();
@@ -112,7 +112,7 @@ fn layout_hand(
                 dest: new_tile_pos,
             });
 
-            flip_tiles_writer.write(FlipTile { id: *tile, owner });
+            flip_tiles_writer.write(RotateTile { id: *tile, owner });
         }
     }
 }
@@ -128,25 +128,15 @@ fn layout_discard(
     discard_anchors: Query<(Entity, &DiscardAnchor)>,
     tile_collections: Query<&TileCollection>,
     mut move_tiles_writer: MessageWriter<MoveTile>,
-    mut flip_tiles_writer: MessageWriter<FlipTile>,
+    mut flip_tiles_writer: MessageWriter<RotateTile>,
 ) {
-    // replace these with pixel width computed values
-    const TEMPORARY_DEBUGGING_CARD_WIDTH: f32 = 130f32;
-    const TEMPORARY_DEBUGGING_CARD_HEIGHT: f32 = 180f32;
-
     for (discard_entity, &DiscardAnchor(anchorpos, discard_layout_width, player_kind)) in
         discard_anchors
     {
         let (width, height) = match player_kind {
             // todo flip the ai's (playerside up) cards upside down (requires transform stuff)
-            Owner::Player => (
-                TEMPORARY_DEBUGGING_CARD_WIDTH,
-                TEMPORARY_DEBUGGING_CARD_HEIGHT.neg(),
-            ),
-            Owner::AI => (
-                TEMPORARY_DEBUGGING_CARD_WIDTH.neg(),
-                TEMPORARY_DEBUGGING_CARD_HEIGHT,
-            ),
+            Owner::Player => (TILE_WIDTH, TILE_HEIGHT.neg()),
+            Owner::AI => (TILE_WIDTH.neg(), TILE_HEIGHT),
         };
 
         for (ix, tile) in tile_collections
@@ -165,7 +155,7 @@ fn layout_discard(
                 dest: new_pos,
             });
 
-            flip_tiles_writer.write(FlipTile {
+            flip_tiles_writer.write(RotateTile {
                 id: tile,
                 owner: player_kind,
             });
@@ -179,33 +169,38 @@ fn layout_wall(
     all_tiles: Query<&Slot>,
     mut move_tiles_writer: MessageWriter<MoveTile>,
 ) {
-    let mut rng = StdRng::seed_from_u64(67); // -\_o_o_/^
     let Some((wall_entity, wall_anchor)) = wall_anchor.iter().next() else {
         return;
     };
 
     let dims = wall_anchor.0.as_vec2() * Vec2::new(TILE_WIDTH, TILE_HEIGHT);
 
-    let mut rows = (0..=(wall_anchor.0.x))
+    let top = (0..=(wall_anchor.0.x))
         .map(|i| i as f32 * TILE_WIDTH)
-        .cartesian_product([0.0, dims.y].into_iter())
-        .map(|(x, y)| Vec2::new(x, y) - dims / 2.0)
+        .map(|x| Vec2::new(x, dims.y) - dims / 2.0)
         .collect_vec();
-    let mut cols = (0..=(wall_anchor.0.y))
+    let bottom = (0..=(wall_anchor.0.x))
+        .rev()
+        .map(|i| i as f32 * TILE_WIDTH)
+        .map(|x| Vec2::new(x, 0.0) - dims / 2.0)
+        .collect_vec();
+    let right = (0..=(wall_anchor.0.y))
         .map(|i| i as f32 * TILE_HEIGHT)
-        .cartesian_product([0.0, dims.x].into_iter())
-        .map(|(y, x)| Vec2::new(x, y) - dims / 2.0)
+        .map(|y| Vec2::new(dims.x, y) - dims / 2.0)
+        .collect_vec();
+    let left = (0..=(wall_anchor.0.y))
+        .rev()
+        .map(|i| i as f32 * TILE_HEIGHT)
+        .map(|y| Vec2::new(0.0, y) - dims / 2.0)
         .collect_vec();
 
-    rows.append(&mut cols);
-    let mut positions = rows;
-
-    positions.shuffle(&mut rng);
-    let mut i = 0;
+    let positions = [top, right, bottom, left].concat();
 
     for tile_entity in tile_collections.iter_descendants(wall_entity) {
-        let pos = positions.get(i).unwrap();
-        i = (i + 1) % positions.len();
+        let Ok(slot) = all_tiles.get(tile_entity) else {
+            continue;
+        };
+        let pos = positions.get(slot.0 as usize % positions.len()).unwrap();
 
         move_tiles_writer.write(MoveTile {
             id: tile_entity,
