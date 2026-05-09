@@ -92,7 +92,7 @@ pub fn spawn_tile(
             ShownFace::default(),
             Transform::default(),
             Tile {
-                data: TileKind::Suit(Suit::Characters(1)),
+                data: TileKind::Number(Suit::Characters, 1),
             },
             // TODO: this should probably be done with a resource specified when plugin made
             Mesh2d(mesh.clone()),

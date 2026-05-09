@@ -2,16 +2,16 @@
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TileKind {
-    Suit(Suit),
+    Number(Suit, u8),
     Honor(Honor),
 }
 
 /// suits each with associated number between 1 and 9
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Suit {
-    Characters(u8),
-    Circle(u8),
-    Bamboo(u8),
+    Characters,
+    Circle,
+    Bamboo,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
