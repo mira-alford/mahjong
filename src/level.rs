@@ -11,7 +11,7 @@ use crate::{
         player::{ActorState, PlayerLoadout},
     },
     tile::{
-        MoveCurve, SharedTileData, TILE_HEIGHT, TILE_WIDTH, TileBundle, kind::TileKind,
+        MoveCurve, SharedTileData, ShownFace, TILE_HEIGHT, TILE_WIDTH, TileBundle, kind::TileKind,
         render::TileMaterial, tile_click_oberver,
     },
 };
@@ -109,8 +109,9 @@ fn init_level(
                 &mut materials,
                 asset_server.clone(),
                 shared_tile_data.clone(),
-                TileKind::Blank,
+                TileKind::Number(crate::tile::kind::Suit::Characters, 1),
             ))
+            .insert(ShownFace(crate::tile::TileFace::Bottom))
             .observe(tile_click_oberver)
             .id();
         commands.entity(tile_id).insert(OwnedTile(unused_id));

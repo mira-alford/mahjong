@@ -3,7 +3,8 @@ use itertools::Itertools;
 use std::ops::Neg;
 
 use crate::level::Owner;
-use crate::tile::{MoveTile, RotateTile, TILE_HEIGHT, TILE_WIDTH, Tile};
+use crate::model::game::GameModel;
+use crate::tile::{MoveTile, RotateTile, ShownFace, TILE_HEIGHT, TILE_WIDTH, Tile};
 
 /// Hand Anchor
 #[derive(Copy, Debug, Clone)]
@@ -48,6 +49,7 @@ pub enum Anchor {
 pub fn layout_plugin(app: &mut App) {
     app.add_systems(FixedUpdate, layout_all_the_things)
         .add_systems(FixedUpdate, transfer_tiles)
+        // .add_systems(FixedUpdate, flip_hidden_tiles)
         .add_message::<TransferTile>()
         .add_message::<RotateTile>();
 }
@@ -215,10 +217,57 @@ pub struct TransferTile {
 }
 
 /// Event handler for transferring tiles from one collection to another.
-fn transfer_tiles(mut messages: MessageReader<TransferTile>, mut commands: Commands) {
+fn transfer_tiles(
+    mut messages: MessageReader<TransferTile>,
+    mut commands: Commands,
+    anchors: Query<(Entity, &Anchor, Option<&Owner>)>,
+    tile_collection: Query<&TileCollection>,
+) {
     for &TransferTile { tile, src, dest } in messages.read() {
+        if let Ok((entity, anchor, owner)) = anchors.get(dest) {
+            if (matches!(anchor, Anchor::Hand(_)) && matches!(owner, Some(Owner::AI)))
+                || matches!(anchor, Anchor::Wall(_))
+            {
+                for entity in tile_collection.iter_descendants(entity) {
+                    commands
+                        .entity(entity)
+                        .insert(ShownFace(crate::tile::TileFace::Bottom));
+                }
+            } else {
+                for entity in tile_collection.iter_descendants(entity) {
+                    commands
+                        .entity(entity)
+                        .insert(ShownFace(crate::tile::TileFace::Top));
+                }
+            }
+        }
+
         commands.entity(src).remove_related::<OwnedTile>(&[tile]);
         commands.entity(dest).add_one_related::<OwnedTile>(tile);
+    }
+}
+
+fn flip_hidden_tiles(
+    anchors: Query<(Entity, &Anchor, &Owner)>,
+    tile_collection: Query<&TileCollection>,
+    mut commands: Commands,
+) {
+    for (entity, anchor, owner) in &anchors {
+        if !((matches!(anchor, Anchor::Hand(_)) && *owner == Owner::AI)
+            || matches!(anchor, Anchor::Wall(_)))
+        {
+            for entity in tile_collection.iter_descendants(entity) {
+                commands
+                    .entity(entity)
+                    .insert(ShownFace(crate::tile::TileFace::Top));
+            }
+        } else {
+            for entity in tile_collection.iter_descendants(entity) {
+                commands
+                    .entity(entity)
+                    .insert(ShownFace(crate::tile::TileFace::Bottom));
+            }
+        }
     }
 }
 

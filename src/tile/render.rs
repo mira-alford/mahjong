@@ -206,8 +206,8 @@ fn flip_animation(
         // since animation ends when t == 1, the animation will last 0.5 second
         flip_animation_state.t += time.delta_secs() * 2.0;
 
-        dbg!(flip_animation_state.t);
-        dbg!(x_scale_factor);
+        // dbg!(flip_animation_state.t);
+        // dbg!(x_scale_factor);
 
         if 0.5 <= flip_animation_state.t && !flip_animation_state.done_flip {
             match shown_face.0 {
