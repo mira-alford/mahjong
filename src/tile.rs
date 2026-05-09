@@ -1,7 +1,7 @@
 pub mod kind;
 pub mod render;
 
-use bevy::{picking::hover::Hovered, prelude::*};
+use bevy::prelude::*;
 use std::time::Instant;
 
 use self::kind::{Suit, TileKind};
