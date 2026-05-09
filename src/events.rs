@@ -1,6 +1,7 @@
 //! Events that are sent to/from the model and the view.
 
 use bevy::{platform::collections::HashSet, prelude::*};
+use rand::RngExt;
 
 use crate::{
     layout::{Anchor, TileCollection, TransferTile},
@@ -100,11 +101,20 @@ fn discard_tile_msg_handler(
     mut messages: MessageReader<DiscardTileMsg>,
     mut commands: Commands,
     mut transfer: MessageWriter<TileTransferMsg>,
+    assets: Res<AssetServer>,
     actors: Query<(&mut ActorState, &Owner)>,
 ) {
     if let Some(DiscardTileMsg(loc, tile)) = messages.read().next() {
         for (mut actor, owner) in actors {
             if *owner == Owner::Player {
+                let mut rng = rand::rng();
+                let n = rng.random_range(1..=4);
+
+                commands.spawn((
+                    AudioPlayer::new(assets.load(&format!("audio/click{n}.ogg"))),
+                    PlaybackSettings::DESPAWN,
+                ));
+
                 let added_tile = actor.discard_tile(*loc);
                 transfer.write(TileTransferMsg {
                     start: *loc,
