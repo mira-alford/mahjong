@@ -1,6 +1,6 @@
 //! Events that are sent to/from the model and the view.
 
-use bevy::prelude::*;
+use bevy::{platform::collections::HashSet, prelude::*};
 
 use crate::{
     layout::{Anchor, TileCollection, TransferTile},
@@ -79,30 +79,32 @@ fn play_tiles_msg_handler(mut messages: MessageReader<PlayTilesMsg>, mut command
 fn tile_transfer_msg_handler(
     mut messages: MessageReader<TileTransferMsg>,
     mut commands: Commands,
-    anchor_query: Query<(Entity, &Anchor, &Owner)>,
+    anchor_query: Query<(Entity, &Anchor, Option<&Owner>)>,
     tile_collections: Query<&TileCollection>,
     tiles: Query<&Tile>,
     mut transfer_writer: MessageWriter<TransferTile>,
 ) {
+    let mut seen = HashSet::new();
     for message in messages.read() {
         fn find_anchor(
-            anchor_query: Query<'_, '_, (Entity, &Anchor, &Owner)>,
+            anchor_query: Query<'_, '_, (Entity, &Anchor, Option<&Owner>)>,
             tile_location: &TileLocation,
         ) -> Option<Entity> {
             anchor_query
                 .iter()
-                .find(|(_, anchor, owner)| match anchor {
-                    Anchor::Hand(_) => {
-                        matches!(tile_location, TileLocation::Hand(o, _) if o == *owner)
+                .find(|(_, anchor, owner)| match (**anchor, *owner) {
+                    (Anchor::Hand(_), Some(owner)) => {
+                        matches!(tile_location, TileLocation::Hand(o, _) if *o == *owner)
                     }
-                    Anchor::Wall(_) => matches!(tile_location, TileLocation::Wall),
-                    Anchor::Discard(_) => {
-                        matches!(tile_location, TileLocation::Discard(o) if o == *owner)
+                    (Anchor::Wall(_), _) => matches!(tile_location, TileLocation::Wall),
+                    (Anchor::Discard(_), Some(owner)) => {
+                        matches!(tile_location, TileLocation::Discard(o) if *o == *owner)
                     }
-                    Anchor::Unused(_) => false,
-                    Anchor::Draw(_) => {
-                        matches!(tile_location, TileLocation::Draw(o) if o == *owner)
+                    (Anchor::Draw(_), Some(owner)) => {
+                        matches!(tile_location, TileLocation::Draw(o) if *o == *owner)
                     }
+                    (Anchor::Unused(_), _) => false,
+                    _ => false,
                 })
                 .map(|t| t.0)
         }
@@ -121,11 +123,14 @@ fn tile_transfer_msg_handler(
                 tiles
                     .get(entity)
                     .is_ok_and(|tile| tile.kind == message.tile)
+                    && !seen.contains(&entity)
             })
         else {
             warn!(tile=?message.tile, "Unable to tile.");
             continue;
         };
+
+        seen.insert(tile);
 
         transfer_writer.write(TransferTile {
             tile,

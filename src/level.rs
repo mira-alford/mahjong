@@ -68,7 +68,7 @@ pub fn level_plugin(app: &mut App) {
             FixedUpdate,
             build_wall.run_if(in_state(LevelState::BuildWall)),
         )
-        .add_systems(FixedUpdate, deal_tiles.run_if(in_state(LevelState::Deal)));
+        .add_systems(OnEnter(LevelState::Deal), deal_tiles);
 }
 
 /// Initializes the level.
@@ -373,30 +373,30 @@ fn deal_tiles(
 
     */
 
-    if !*oneshot {
-        *oneshot = true;
-        let beans = model.wall.len() - 13;
-        let mut player_hand = model.wall.split_off(beans);
+    let beans = model.wall.len() - 13;
+    let mut player_hand = model.wall.split_off(beans);
 
-        for i in 0..13 {
-            messages.write(TileTransferMsg {
-                start: TileLocation::Wall,
-                end: TileLocation::Hand(Owner::Player, i),
-                tile: player_hand[i],
-            });
-        }
-
-        player_hand.sort();
-        dbg!(&player_hand);
-        let beans = model.wall.len() - 13;
-        let mut enemy_hand = model.wall.split_off(beans);
-        for i in 0..13 {
-            messages.write(TileTransferMsg {
-                start: TileLocation::Wall,
-                end: TileLocation::Hand(Owner::Player, i),
-                tile: player_hand[i],
-            });
-        }
-        enemy_hand.sort();
+    for i in 0..13 {
+        messages.write(TileTransferMsg {
+            start: TileLocation::Wall,
+            end: TileLocation::Hand(Owner::Player, i),
+            tile: player_hand[i],
+        });
     }
+    player_hand.sort();
+    dbg!(&player_hand);
+
+    let beans = model.wall.len() - 13;
+    let mut enemy_hand = model.wall.split_off(beans);
+    for i in 0..13 {
+        messages.write(TileTransferMsg {
+            start: TileLocation::Wall,
+            end: TileLocation::Hand(Owner::AI, i),
+            tile: enemy_hand[i],
+        });
+    }
+    enemy_hand.sort();
+    dbg!(enemy_hand);
+
+    next_state.set(LevelState::Draw);
 }

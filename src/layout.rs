@@ -228,17 +228,17 @@ fn transfer_tiles(
             if (matches!(anchor, Anchor::Hand(_)) && matches!(owner, Some(Owner::AI)))
                 || matches!(anchor, Anchor::Wall(_))
             {
-                for entity in tile_collection.iter_descendants(entity) {
-                    commands
-                        .entity(entity)
-                        .insert(ShownFace(crate::tile::TileFace::Bottom));
-                }
+                // for entity in tile_collection.iter_descendants(entity) {
+                commands
+                    .entity(tile)
+                    .insert(ShownFace(crate::tile::TileFace::Bottom));
+                // }
             } else {
-                for entity in tile_collection.iter_descendants(entity) {
-                    commands
-                        .entity(entity)
-                        .insert(ShownFace(crate::tile::TileFace::Top));
-                }
+                // for entity in tile_collection.iter_descendants(entity) {
+                commands
+                    .entity(tile)
+                    .insert(ShownFace(crate::tile::TileFace::Top));
+                // }
             }
         }
 
