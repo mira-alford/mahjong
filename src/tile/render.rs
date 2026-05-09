@@ -45,4 +45,8 @@ impl Material2d for TileMaterial {
     fn fragment_shader() -> bevy::shader::ShaderRef {
         SHADER_PATH.into()
     }
+
+    fn alpha_mode(&self) -> bevy::sprite_render::AlphaMode2d {
+        bevy::sprite_render::AlphaMode2d::Blend
+    }
 }
