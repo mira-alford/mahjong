@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::{
     layout::{Anchor, TileCollection, TransferTile},
-    level::{LevelState, Owner},
+    level::{HealthBar, LevelState, Owner},
     model::game::GameModel,
     tile::{Tile, kind::TileKind},
 };
@@ -66,7 +66,8 @@ pub struct TileTransferMsg {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Message)]
 pub struct HealthUpdateMsg {
     owner: Owner,
-    health: u32,
+    cur_health: u32,
+    max_health: u32,
 }
 
 fn draw_tile_msg_handler(mut messages: MessageReader<DrawTileMsg>, mut commands: Commands) {}
@@ -84,10 +85,6 @@ fn tile_transfer_msg_handler(
     mut transfer_writer: MessageWriter<TransferTile>,
 ) {
     for message in messages.read() {
-        // fn fun_name(
-        //     anchor_query: Query<'_, '_, (Entity, &Anchor, &Owner)>,
-        //     message: &TileTransferMsg,
-        // ) -> Option<(Entity, &Anchor, &Owner)> {
         fn find_anchor(
             anchor_query: Query<'_, '_, (Entity, &Anchor, &Owner)>,
             tile_location: &TileLocation,
@@ -110,7 +107,7 @@ fn tile_transfer_msg_handler(
                 .map(|t| t.0)
         }
 
-        let (Some((start_anchor)), Some((end_anchor))) = (
+        let (Some(start_anchor), Some(end_anchor)) = (
             find_anchor(anchor_query, &message.start),
             find_anchor(anchor_query, &message.end),
         ) else {
@@ -138,7 +135,32 @@ fn tile_transfer_msg_handler(
     }
 }
 
-fn health_update_msg_handler(mut messages: MessageReader<HealthUpdateMsg>, mut commands: Commands) {
+fn health_update_msg_handler(
+    mut messages: MessageReader<HealthUpdateMsg>,
+    mut healthbars: Query<(&mut Text, &Owner), With<HealthBar>>,
+) {
+    for msg in messages.read() {
+        // get the text component that matches the message
+        let Some((mut found_text, owner)) = healthbars
+            .iter_mut()
+            .find(|(_, healthbar_owner)| msg.owner == **healthbar_owner)
+        else {
+            warn!(msg = ?msg, "got a message to update healthbar, but couldn't find the matching text for the owner");
+            continue;
+        };
+
+        let owner_name: String = match owner {
+            Owner::Player => "Your".into(),
+            Owner::AI => "Enemy".into(),
+        };
+
+        let new_text = format!(
+            "{} Health: {}/{}",
+            owner_name, msg.cur_health, msg.max_health
+        );
+
+        **found_text = new_text;
+    }
 }
 
 pub fn draw_tile(

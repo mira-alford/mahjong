@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use itertools::Itertools;
 use rand::seq::SliceRandom;
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashSet, fmt, time::Duration};
 
 use crate::{
     GameState,
@@ -34,6 +34,11 @@ pub enum LevelState {
     Discard,
     Play,
 }
+
+/// Marker component that signifies that a thing is a health indicator
+/// so that we can search for them to update them
+#[derive(Component, Default, Clone, Copy, Debug)]
+pub struct HealthBar;
 
 #[derive(Resource, Default, Clone, Copy, Debug)]
 enum Turn {
@@ -125,6 +130,46 @@ fn init_level(
         }),
         TileCollection::default(),
     ));
+
+    commands
+        .spawn((Node {
+            width: Val::Percent(100.0),
+            height: Val::Px(50.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        },))
+        .with_children(|builder| {
+            // ai health indicator
+            builder.spawn((
+                Text::new(""),
+                Owner::AI,
+                TextFont {
+                    font_size: 14.0,
+                    ..default()
+                },
+                HealthBar,
+                Node {
+                    margin: UiRect::top(Val::Px(-50.0)),
+                    ..default()
+                },
+            ));
+
+            // player health indicator
+            builder.spawn((
+                Text::new(""),
+                Owner::Player,
+                TextFont {
+                    font_size: 14.0,
+                    ..default()
+                },
+                HealthBar,
+                Node {
+                    margin: UiRect::top(Val::Px(50.0)),
+                    ..default()
+                },
+            ));
+        });
 
     // Spawn in 2 hands:
     // TODO: hand resizing system that uses window size
