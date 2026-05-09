@@ -16,18 +16,10 @@ fn fragment(
 
     let radius = 0.3;
 
-    let alpha = smoothstep(0.0, 0.01, -rounded_corners_sdf(uv, size, radius));
+    let texture_color = textureSample(material_color_texture, material_color_sampler, mesh.uv);
+    let color = texture_color.rgb * tint.rgb;
 
-    let color = textureSample(material_color_texture, material_color_sampler, mesh.uv)
-        * tint;
-
-    return vec4<f32>(color.rgb, alpha);
+    return vec4<f32>(color, texture_color.a);
     // return vec4<f32>(uv, 0.0, alpha);
     // return vec4<f32>(alpha, 0.0, 0.0, 1.0);
-}
-
-// adapted from https://www.shadertoy.com/view/ltS3zW
-fn rounded_corners_sdf(uv: vec2<f32>, size: vec2<f32>, radius: f32) -> f32 {
-    let d = abs(uv) - (size / 2) + vec2<f32>(radius);
-    return  min(max(d.x, d.y), 0.0) + length(max(d, vec2<f32>(0.0))) - radius;
 }
