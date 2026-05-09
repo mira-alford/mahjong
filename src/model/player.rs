@@ -51,11 +51,11 @@ impl PlayerLoadout {
         }
     }
 
-    pub fn actor_state(&self) -> ActorState {
+    pub fn actor_state(&self, hand: Vec<TileKind>) -> ActorState {
         ActorState {
             hp: self.base_hp,
             shield: self.base_shield,
-            hand: Vec::new(),
+            hand,
             sets: Vec::new(),
         }
     }
@@ -74,11 +74,11 @@ pub struct ActorState {
 }
 
 impl ActorState {
-    pub fn default_enemy() -> Self {
+    pub fn default_enemy(hand: Vec<TileKind>) -> Self {
         ActorState {
             hp: 100,
             shield: 0,
-            hand: Vec::new(),
+            hand,
             sets: Vec::new(),
         }
     }
