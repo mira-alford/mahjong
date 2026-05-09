@@ -2,12 +2,13 @@ pub mod kind;
 pub mod render;
 
 use bevy::prelude::*;
+use itertools::Itertools;
 use std::time::Instant;
 
 use crate::events::{
     DiscardTileMsg, DrawTileMsg, PlayTilesMsg, discard_tile, draw_tile, play_tile,
 };
-use crate::layout::{Anchor, LAYOUT_HAND_MOVE_A, LAYOUT_HAND_MOVE_B, OwnedTile};
+use crate::layout::{Anchor, LAYOUT_HAND_MOVE_A, LAYOUT_HAND_MOVE_B, OwnedTile, TileCollection};
 use crate::level::{LevelState, Owner};
 use crate::model::game::GameModel;
 
@@ -244,7 +245,8 @@ fn rotate_tile(mut messages: MessageReader<RotateTile>, mut query: Query<&mut Tr
 pub fn tile_click_oberver(
     event: On<Pointer<Click>>,
     entities: Query<&Tile>,
-    tile_collections: Query<&OwnedTile>,
+    owned_tile: Query<&OwnedTile>,
+    tile_collections: Query<&TileCollection>,
     anchors: Query<(&Anchor, Option<&Owner>)>,
     level_state: Res<State<LevelState>>,
     game_model: ResMut<GameModel>,
@@ -265,10 +267,21 @@ pub fn tile_click_oberver(
         return;
     }
 
-    let Some(ancestor) = tile_collections.iter_ancestors(event_target).next() else {
+    let Some(ancestor) = owned_tile.iter_ancestors(event_target).next() else {
         warn!("Unable to find ancestor for clicked tile");
         return;
     };
+
+    let children = tile_collections.iter_descendants(ancestor);
+    let mut index = 0;
+    for (i, child) in children
+        .sorted_by_key(|c| entities.get(*c).ok().map(|t| t.kind))
+        .enumerate()
+    {
+        if child == event_target {
+            index = i;
+        }
+    }
 
     let Ok((&anchor, owner)) = anchors.get(ancestor) else {
         warn!("Unable to find anchor for clicked tile parent");
@@ -292,6 +305,7 @@ pub fn tile_click_oberver(
             anchor,
             owner.copied(),
             *tile,
+            index,
             game_model.into(),
             discard_messages,
             next_state,

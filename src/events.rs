@@ -170,13 +170,15 @@ pub fn discard_tile(
     anchor: Anchor,
     owner: Option<Owner>,
     tile: Tile,
+    index: usize,
     state: Res<GameModel>,
     mut messages: MessageWriter<DiscardTileMsg>,
     mut next_state: ResMut<NextState<LevelState>>,
 ) {
+    dbg!(&index);
     let discard_location: TileLocation = match (anchor, owner) {
         (Anchor::Hand(_), Some(hand_owner)) if state.turn == hand_owner => {
-            TileLocation::Hand(hand_owner, 0) // TODO: Don't worry about it
+            TileLocation::Hand(hand_owner, index) // TODO: Don't worry about it
         }
         (Anchor::Draw(_), Some(draw_owner)) if state.turn == draw_owner => {
             TileLocation::Draw(draw_owner)
