@@ -146,6 +146,12 @@ fn hover_animation(
         let lerp_factor = 10.0 * time.delta_secs();
 
         material.set_scale(&curr_scale.lerp(target, lerp_factor));
+
+        if hovered.0 {
+            material.set_tilt(&Vec2::new(0.0, 30.0));
+        } else {
+            material.set_tilt(&Vec2::ZERO)
+        }
     }
 }
 

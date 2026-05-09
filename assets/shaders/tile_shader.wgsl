@@ -25,8 +25,41 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex.uv;
 
-    let position = vertex.position * vec3<f32>(scale, 1.0);
-        
+    let tilt = radians(tilt);
+
+    var position = vertex.position * vec3<f32>(scale, 0.0); // mult by scale
+
+    let sx = sin(tilt.y);
+    let cx = cos(tilt.y);
+
+    let sy = sin(tilt.x);
+    let cy = cos(tilt.x);
+
+    let rot_y = mat3x3<f32>(
+        vec3<f32>( cy, 0.0, sy),
+        vec3<f32>(0.0, 1.0, 0.0),
+        vec3<f32>(-sy, 0.0, cy),
+    );
+
+    let rot_x = mat3x3<f32>(
+        vec3<f32>(1.0, 0.0, 0.0),
+        vec3<f32>(0.0,  cx, -sx),
+        vec3<f32>(0.0,  sx,  cx),
+    );
+
+    position = rot_y * rot_x * position;
+
+    let fov = radians(90.0);
+
+    let focal =
+        150.0 / tan(fov * 0.5);
+
+    let perspective =
+        focal / (position.z + focal);
+
+    position.x *= perspective;
+    position.y *= perspective;
+    
     var world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
     out.world_position = mesh_functions::mesh2d_position_local_to_world(
         world_from_local,
