@@ -83,7 +83,12 @@ fn init_level(
     player_loadout: Res<PlayerLoadout>,
     asset_server: Res<AssetServer>,
     shared_tile_data: Res<SharedTileData>,
+    assets: Res<AssetServer>,
 ) {
+    commands.spawn((
+        AudioPlayer::new(assets.load("audio/mahjong to the death.ogg")),
+        PlaybackSettings::LOOP,
+    ));
     // Init the model to a good state
     let mut deck = player_loadout.full_deck.clone();
     let mut rng = rand::rng();
