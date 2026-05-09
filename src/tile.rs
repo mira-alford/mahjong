@@ -2,12 +2,12 @@ pub mod kind;
 pub mod render;
 
 use bevy::prelude::*;
-use std::default;
 use std::time::Instant;
 
-use crate::GameState;
-use crate::events::{TileLocation, discard_tile, draw_tile, play_tile};
-use crate::layout::{Anchor, LAYOUT_HAND_MOVE_A, LAYOUT_HAND_MOVE_B, OwnedTile, TileCollection};
+use crate::events::{
+    DiscardTileMsg, DrawTileMsg, PlayTilesMsg, discard_tile, draw_tile, play_tile,
+};
+use crate::layout::{Anchor, LAYOUT_HAND_MOVE_A, LAYOUT_HAND_MOVE_B, OwnedTile};
 use crate::level::{LevelState, Owner};
 use crate::model::game::GameModel;
 
@@ -246,9 +246,19 @@ pub fn tile_click_oberver(
     entities: Query<&Tile>,
     tile_collections: Query<&OwnedTile>,
     anchors: Query<(&Anchor, Option<&Owner>)>,
-    state: Res<State<LevelState>>,
-    game_state: Res<GameModel>,
+    level_state: Res<State<LevelState>>,
+    game_model: Res<GameModel>,
+
+    // behold the message writers
+    draw_messages: MessageWriter<DrawTileMsg>,
+    discard_messages: MessageWriter<DiscardTileMsg>,
+    play_tile_messages: MessageWriter<PlayTilesMsg>,
 ) {
+    if matches!(game_model.turn, Owner::AI) {
+        info!("don't do anything on the AI's turn, so we quit early :)");
+        return;
+    }
+
     let event_target = event.event_target();
 
     let Some(ancestor) = tile_collections.iter_ancestors(event_target).next() else {
@@ -266,29 +276,12 @@ pub fn tile_click_oberver(
         return;
     };
 
-    match state.get() {
-        LevelState::Draw => draw_tile(anchor, owner.copied()),
-
-        LevelState::Discard => discard_tile(anchor, owner.copied(), *tile),
-        LevelState::Play => play_tile(owner.copied()),
-        _ => return,
+    match &level_state.get() {
+        LevelState::Draw => draw_tile(anchor, owner.copied(), game_model, draw_messages),
+        LevelState::Discard => {
+            discard_tile(anchor, owner.copied(), *tile, game_model, discard_messages)
+        }
+        LevelState::Play => play_tile(anchor, owner.copied(), game_model, play_tile_messages),
+        _ => (),
     };
-    // match anchor {
-    //     Anchor::Hand(hand) => ,
-    //     Anchor::Wall(wall) => todo!(),
-    //     Anchor::Discard(discard) => todo!(),
-    //     Anchor::Unused(unused) => todo!(),
-    //     Anchor::Draw(draw) => todo!(),
-    // }
-
-    println!("clicked {:?}", event_target);
-
-    // let mut face = query
-    //     .get_mut(event_target)
-    //     .expect("expected clicked tile to have ShownFace componenet");
-
-    // match face.0 {
-    //     TileFace::Top => face.0 = TileFace::Bottom,
-    //     TileFace::Bottom => face.0 = TileFace::Top,
-    // }
 }

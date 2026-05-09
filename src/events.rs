@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use crate::{
     layout::{Anchor, TileCollection, TransferTile},
     level::Owner,
+    model::game::GameModel,
     tile::{Tile, kind::TileKind},
 };
 
@@ -140,14 +141,62 @@ fn tile_transfer_msg_handler(
 fn health_update_msg_handler(mut messages: MessageReader<HealthUpdateMsg>, mut commands: Commands) {
 }
 
-pub fn draw_tile(anchor: Anchor, owner: Option<Owner>) {
+pub fn draw_tile(
+    anchor: Anchor,
+    owner: Option<Owner>,
+    state: Res<GameModel>,
+    mut messages: MessageWriter<DrawTileMsg>,
+) {
+    let draw_location: TileLocation = match (anchor, owner) {
+        (Anchor::Wall(_), None) => TileLocation::Wall,
+        (Anchor::Discard(_), Some(discard_owner)) if state.turn != discard_owner => {
+            TileLocation::Discard(discard_owner)
+        }
+        _ => {
+            debug!(anchor=?anchor, owner=?owner,"not handling case in draw tile");
+            return;
+        }
+    };
 
-    // {
-    //     (Anchor::Wall(wall), None) => {
-    //     }
-    //     (Anchor::Discard(discard), Some(owner)) if *owner != game_state.turn => return,
-    //     _ => return,
-    // },
+    messages.write(DrawTileMsg(draw_location));
 }
-pub fn discard_tile(anchor: Anchor, owner: Option<Owner>, tile: Tile) {}
-pub fn play_tile(owner: Option<Owner>) {}
+pub fn discard_tile(
+    anchor: Anchor,
+    owner: Option<Owner>,
+    tile: Tile,
+    state: Res<GameModel>,
+    mut messages: MessageWriter<DiscardTileMsg>,
+) {
+    let discard_location: TileLocation = match (anchor, owner) {
+        (Anchor::Hand(_), Some(hand_owner)) if state.turn == hand_owner => {
+            TileLocation::Hand(hand_owner, 0) // TODO: Don't worry about it
+        }
+        (Anchor::Draw(_), Some(draw_owner)) if state.turn == draw_owner => {
+            TileLocation::Draw(draw_owner)
+        }
+        _ => {
+            debug!(anchor=?anchor, owner=?owner,"not handling case in discard tile");
+            return;
+        }
+    };
+
+    messages.write(DiscardTileMsg(discard_location, tile.kind));
+}
+pub fn play_tile(
+    anchor: Anchor,
+    owner_opt: Option<Owner>,
+    state: Res<GameModel>,
+    mut messages: MessageWriter<PlayTilesMsg>,
+) {
+    // we can only play tiles when the tile we clicked belongs to the hand
+    // also, we can only play tiles when we click **our hand**
+    let owner: Owner = match (owner_opt, anchor) {
+        (Some(cur_owner), Anchor::Hand(_)) if cur_owner == state.turn => cur_owner,
+        _ => {
+            info!(anchor=?anchor, owner=?owner_opt,"not handling case in play tile");
+            return;
+        }
+    };
+
+    messages.write(PlayTilesMsg(owner));
+}
