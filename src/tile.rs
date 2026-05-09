@@ -1,10 +1,11 @@
+pub mod kind;
 pub mod render;
 
 use bevy::{picking::hover::Hovered, prelude::*};
 use std::time::Instant;
 
+use self::kind::{Suit, TileKind};
 use self::render::{TileMaterial, TileMaterialPlugin};
-use crate::tile_kind::{Suit, TileKind};
 
 pub struct TilePlugin;
 

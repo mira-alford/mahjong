@@ -3,7 +3,6 @@
 pub mod layout;
 pub mod level;
 pub mod tile;
-pub mod tile_kind;
 pub mod title_menu;
 
 use bevy::prelude::*;
