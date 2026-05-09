@@ -247,12 +247,15 @@ pub fn tile_click_oberver(
     tile_collections: Query<&OwnedTile>,
     anchors: Query<(&Anchor, Option<&Owner>)>,
     level_state: Res<State<LevelState>>,
-    game_model: Res<GameModel>,
+    game_model: ResMut<GameModel>,
 
     // behold the message writers
     draw_messages: MessageWriter<DrawTileMsg>,
     discard_messages: MessageWriter<DiscardTileMsg>,
     play_tile_messages: MessageWriter<PlayTilesMsg>,
+
+    // state transition
+    mut next_state: ResMut<NextState<LevelState>>,
 ) {
     if matches!(game_model.turn, Owner::AI) {
         info!("don't do anything on the AI's turn, so we quit early :)");
@@ -277,11 +280,11 @@ pub fn tile_click_oberver(
     };
 
     match &level_state.get() {
-        LevelState::Draw => draw_tile(anchor, owner.copied(), game_model, draw_messages),
+        LevelState::Draw => draw_tile(anchor, owner.copied(), game_model.into(), draw_messages, next_state),
         LevelState::Discard => {
-            discard_tile(anchor, owner.copied(), *tile, game_model, discard_messages)
+            discard_tile(anchor, owner.copied(), *tile, game_model.into(), discard_messages, next_state)
         }
-        LevelState::Play => play_tile(anchor, owner.copied(), game_model, play_tile_messages),
+        LevelState::Play => play_tile(anchor, owner.copied(), game_model, play_tile_messages, next_state),
         _ => (),
     };
 }

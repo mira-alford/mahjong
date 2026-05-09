@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::{
     layout::{Anchor, TileCollection, TransferTile},
-    level::Owner,
+    level::{LevelState, Owner},
     model::game::GameModel,
     tile::{Tile, kind::TileKind},
 };
@@ -146,6 +146,7 @@ pub fn draw_tile(
     owner: Option<Owner>,
     state: Res<GameModel>,
     mut messages: MessageWriter<DrawTileMsg>,
+    mut next_state: ResMut<NextState<LevelState>>,
 ) {
     let draw_location: TileLocation = match (anchor, owner) {
         (Anchor::Wall(_), None) => TileLocation::Wall,
@@ -159,6 +160,7 @@ pub fn draw_tile(
     };
 
     messages.write(DrawTileMsg(draw_location));
+    next_state.set(LevelState::Discard);
 }
 pub fn discard_tile(
     anchor: Anchor,
@@ -166,6 +168,7 @@ pub fn discard_tile(
     tile: Tile,
     state: Res<GameModel>,
     mut messages: MessageWriter<DiscardTileMsg>,
+    mut next_state: ResMut<NextState<LevelState>>,
 ) {
     let discard_location: TileLocation = match (anchor, owner) {
         (Anchor::Hand(_), Some(hand_owner)) if state.turn == hand_owner => {
@@ -181,12 +184,14 @@ pub fn discard_tile(
     };
 
     messages.write(DiscardTileMsg(discard_location, tile.kind));
+    next_state.set(LevelState::Play);
 }
 pub fn play_tile(
     anchor: Anchor,
     owner_opt: Option<Owner>,
-    state: Res<GameModel>,
+    mut state: ResMut<GameModel>,
     mut messages: MessageWriter<PlayTilesMsg>,
+    mut next_state: ResMut<NextState<LevelState>>,
 ) {
     // we can only play tiles when the tile we clicked belongs to the hand
     // also, we can only play tiles when we click **our hand**
@@ -199,4 +204,13 @@ pub fn play_tile(
     };
 
     messages.write(PlayTilesMsg(owner));
+
+    // we swap the player's turn
+    state.turn = match &state.turn {
+        Owner::Player => Owner::AI,
+        Owner::AI => Owner::Player,
+    };
+
+    // go back to the draw state
+    next_state.set(LevelState::Draw);
 }
