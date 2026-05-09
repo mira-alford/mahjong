@@ -1,4 +1,4 @@
-use crate::tile::kind::TileKind;
+use crate::{level::Owner, tile::kind::TileKind};
 use bevy::prelude::*;
 
 /// The global state of the game
@@ -6,4 +6,6 @@ use bevy::prelude::*;
 pub struct GameModel {
     /// The deck that both players draw from
     pub wall: Vec<TileKind>,
+    /// Which owner has the active turn
+    pub turn: Owner,
 }

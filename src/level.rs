@@ -5,17 +5,14 @@ use std::{collections::HashSet, time::Duration};
 
 use crate::{
     GameState,
-    layout::{
-        DiscardAnchor, HandAnchor, OwnedTile, Slot, TileCollection, TransferTile, UnusedAnchor,
-        WallAnchor,
-    },
+    layout::{Anchor, Discard, Hand, OwnedTile, Slot, TileCollection, TransferTile, Unused, Wall},
     model::{
         game::GameModel,
         player::{ActorState, PlayerLoadout},
     },
     tile::{
-        MoveCurve, SharedTileData, TILE_HEIGHT, TILE_WIDTH, TileBundle, kind::*,
-        render::TileMaterial,
+        MoveCurve, SharedTileData, TILE_HEIGHT, TILE_WIDTH, TileBundle, kind::TileKind,
+        render::TileMaterial, tile_click_oberver,
     },
 };
 
@@ -25,7 +22,7 @@ struct TransitionTimer(Timer);
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, SubStates)]
 #[source(GameState = GameState::Game)]
 #[states(scoped_entities)]
-enum LevelState {
+pub enum LevelState {
     #[default]
     Init,
     /// Transfers from unused or discard tiles to the wall until all are settled.
@@ -33,18 +30,8 @@ enum LevelState {
     /// Transfers from walls to each hand (alternating) on repeat until both
     /// hands are at size 14. Then waits until the tiles settle.
     Deal,
-    /// On entry to this state, toggle whose turn it is to the other.
-    /// Transfer from the wall to a players "draw" location once.
     Draw,
-    /// Enable systems to allow the player to select a tile in their hand
-    /// and swap it. Once selected, go to the steal stage.
-    Swap,
-    /// Transition the tile into the secret "steal" pile. At any point
-    /// the other opponent can either steal or ignore the piece.
-    /// A steal event includes the piece they are replacing.
-    /// If no steal, transition to discard. If steal, transition into their hand.
-    Steal,
-    /// Ask the player if they want to play their hand. If no, go back to drawing.
+    Discard,
     Play,
 }
 
@@ -111,7 +98,7 @@ fn init_level(
 
     // Spawn in the unused pile.
     let unused_id = commands
-        .spawn((UnusedAnchor(Vec2::ZERO), TileCollection::default()))
+        .spawn((Anchor::Unused(Unused), TileCollection::default()))
         .id();
 
     // Just hard spawning 32 unused tiles for now :)
@@ -124,27 +111,34 @@ fn init_level(
                 shared_tile_data.clone(),
                 TileKind::Blank,
             ))
+            .observe(tile_click_oberver)
             .id();
         commands.entity(tile_id).insert(OwnedTile(unused_id));
     }
 
     // Spawn in the wall!
     // TODO: wall resizing system that uses window size
-    commands.spawn((WallAnchor(IVec2::new(14, 6)), TileCollection::default()));
+    commands.spawn((
+        Anchor::Wall(Wall {
+            pos: IVec2::new(14, 6),
+        }),
+        TileCollection::default(),
+    ));
 
     // Spawn in 2 hands:
     // TODO: hand resizing system that uses window size
     commands.spawn((
         Owner::Player,
-        HandAnchor(
-            Vec2::new(-TILE_WIDTH * 8.0, -TILE_HEIGHT * 4.5),
-            Owner::Player,
-        ),
+        Anchor::Hand(Hand {
+            pos: Vec2::new(-TILE_WIDTH * 8.0, -TILE_HEIGHT * 4.5),
+        }),
         TileCollection::default(),
     ));
     commands.spawn((
         Owner::AI,
-        HandAnchor(Vec2::new(TILE_WIDTH * 8.0, TILE_HEIGHT * 4.5), Owner::AI),
+        Anchor::Hand(Hand {
+            pos: Vec2::new(TILE_WIDTH * 8.0, TILE_HEIGHT * 4.5),
+        }),
         TileCollection::default(),
     ));
 
@@ -153,12 +147,18 @@ fn init_level(
     // Spawn in 2 discards
     commands.spawn((
         Owner::Player,
-        DiscardAnchor(Vec2::new(-200.0, 0.0), DISCARD_LAYOUT_WIDTH, Owner::Player),
+        Anchor::Discard(Discard {
+            pos: Vec2::new(-200.0, 0.0),
+            max_width: DISCARD_LAYOUT_WIDTH,
+        }),
         TileCollection::default(),
     ));
     commands.spawn((
         Owner::AI,
-        DiscardAnchor(Vec2::new(200.0, 0.0), DISCARD_LAYOUT_WIDTH, Owner::AI),
+        Anchor::Discard(Discard {
+            pos: Vec2::new(200.0, 0.0),
+            max_width: DISCARD_LAYOUT_WIDTH,
+        }),
         TileCollection::default(),
     ));
 
@@ -171,8 +171,8 @@ fn build_wall(
     mut timer: ResMut<TransitionTimer>,
     time: Res<Time>,
     mut next_state: ResMut<NextState<LevelState>>,
-    sources: Query<Entity, Or<(With<UnusedAnchor>, With<DiscardAnchor>)>>,
-    sinks: Query<Entity, With<WallAnchor>>,
+    sources: Query<(Entity, &Anchor)>,
+    sinks: Query<(Entity, &Anchor)>,
     tile_collections: Query<&TileCollection>,
     tile_query: Query<&Slot>,
     curves: Query<&MoveCurve>,
@@ -186,9 +186,12 @@ fn build_wall(
 
     let mut stabilised = true;
 
-    for sink in sinks {
+    for (sink_entity, sink_anchor) in sinks {
+        if !matches!(sink_anchor, Anchor::Wall(_)) {
+            continue;
+        }
         let mut set: HashSet<u8> = (0..136).into_iter().collect();
-        for tile in tile_collections.iter_descendants(sink) {
+        for tile in tile_collections.iter_descendants(sink_entity) {
             let Ok(slot) = tile_query.get(tile) else {
                 continue;
             };
@@ -200,14 +203,20 @@ fn build_wall(
 
         let mut set = set.iter().collect_vec();
 
+        // sources: Query<Entity, <(With<UnusedAnchor>, With<DiscardAnchor>)>>,
+
         // Are there any pieces in the unused or either discard?
         // if yes, transfer a single one (first from unused) to the wall.
-        'outer: for source in sources {
-            for tile_entity in tile_collections.iter_descendants(source) {
+        'outer: for (source_entity, source_anchor) in sources {
+            if !matches!(source_anchor, Anchor::Unused(_) | Anchor::Discard(_)) {
+                continue;
+            }
+
+            for tile_entity in tile_collections.iter_descendants(source_entity) {
                 messages.write(TransferTile {
                     tile: tile_entity,
-                    src: source,
-                    dest: sink,
+                    src: source_entity,
+                    dest: sink_entity,
                 });
                 let Some(slot) = set.pop() else {
                     continue;
@@ -231,8 +240,8 @@ fn deal_tiles(
     mut timer: ResMut<TransitionTimer>,
     time: Res<Time>,
     mut next_state: ResMut<NextState<LevelState>>,
-    sources: Query<(Entity, &WallAnchor)>,
-    sinks: Query<Entity, With<HandAnchor>>,
+    sources: Query<(Entity, &Anchor)>,
+    sinks: Query<(Entity, &Anchor)>,
     tile_collections: Query<&TileCollection>,
     tile_query: Query<&Slot>,
     mut messages: MessageWriter<TransferTile>,
@@ -244,23 +253,34 @@ fn deal_tiles(
         return;
     }
 
+    // sources: Query<(Entity, &WallAnchor)>,
+    // sinks: Query<Entity, With<HandAnchor>>,
+
     // Choose a sink;
     // let sinks: Vec<_> = sinks.iter().collect();
     // *counter += 1;
     // *counter %= sinks.len();
     // let sink = sinks[*counter];
 
-    for (source, wall_anchor) in sources {
+    for (source_entity, source_anchor) in sources {
+        if !matches!(source_anchor, Anchor::Wall(_)) {
+            continue;
+        }
+
         for tile_entity in tile_collections
-            .iter_descendants(source)
+            .iter_descendants(source_entity)
             .sorted_by_key(|e| match tile_query.get(*e) {
                 Ok(slot) => slot.0,
                 Err(_) => 0,
             })
         {
-            for sink in sinks {
+            for (sink_entity, sink_anchor) in sinks {
+                if !matches!(sink_anchor, Anchor::Hand(_)) {
+                    continue;
+                }
+
                 // the sink is a hand, and the descendants of sink are Tiles
-                let descendants: Vec<_> = tile_collections.iter_descendants(sink).collect();
+                let descendants: Vec<_> = tile_collections.iter_descendants(sink_entity).collect();
 
                 if descendants.len() >= 14 {
                     continue;
@@ -276,7 +296,7 @@ fn deal_tiles(
                     let Ok(Slot(x)) = tile_query.get(descendant) else {
                         continue;
                     };
-                    set.remove(x);
+                    set.remove(&x);
                 }
 
                 commands
@@ -285,15 +305,17 @@ fn deal_tiles(
 
                 messages.write(TransferTile {
                     tile: tile_entity,
-                    src: source,
-                    dest: sink,
+                    src: source_entity,
+                    dest: sink_entity,
                 });
                 return;
             }
+            info!("going to the draw state");
             next_state.set(LevelState::Draw);
             return;
         }
     }
+    info!("going to the build wall state");
     next_state.set(LevelState::BuildWall);
 
     // If both players hands are at least size 14, we go to the draw state.
