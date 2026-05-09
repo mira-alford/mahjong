@@ -59,6 +59,7 @@ impl PlayerLoadout {
             hp: self.base_hp,
             shield: self.base_shield,
             hand,
+            discard: Vec::new(),
             sets: Vec::new(),
             drawn_tile: None,
         }
@@ -72,6 +73,7 @@ pub struct ActorState {
     pub shield: i32,
     /// The actor's hand (13 tiles to start with)
     pub hand: Vec<TileKind>,
+    pub discard: Vec<TileKind>,
     /// Sets created by stealing
     /// This is a vec of vecs since each set is distinct
     pub sets: Vec<Vec<TileKind>>,
@@ -85,6 +87,7 @@ impl ActorState {
             hp: 100,
             shield: 0,
             hand,
+            discard: Vec::new(),
             sets: Vec::new(),
             drawn_tile: None,
         }
@@ -98,7 +101,17 @@ impl ActorState {
     /// Discards a tile from the hand, or from the drawn tile (if it exists).
     ///
     /// The location should not be Drawn if there is no drawn tile.
-    pub fn discard_tile(&self, location: TileLocation) {
-        todo!()
+    pub fn discard_tile(&mut self, location: TileLocation) {
+        match location {
+            TileLocation::Draw(_) => {
+                if let Some(x) = self.drawn_tile.take() {
+                    self.discard.push(x)
+                }
+            }
+            TileLocation::Hand(_, ix) => {
+                self.discard.push(self.hand.remove(ix));
+            }
+            _ => unreachable!(),
+        }
     }
 }
