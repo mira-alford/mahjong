@@ -13,7 +13,10 @@ use crate::{
         game::GameModel,
         player::{ActorState, PlayerLoadout},
     },
-    tile::{MoveCurve, TILE_HEIGHT, TILE_WIDTH, render::TileMaterial, spawn_tile},
+    tile::{
+        MoveCurve, SharedTileData, TILE_HEIGHT, TILE_WIDTH, TileBundle, kind::*,
+        render::TileMaterial,
+    },
 };
 
 #[derive(Resource)]
