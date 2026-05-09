@@ -1,6 +1,7 @@
 pub mod kind;
 pub mod render;
 
+use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use std::default;
 use std::time::Instant;
@@ -51,6 +52,7 @@ pub struct TileBundle {
     material: MeshMaterial2d<TileMaterial>,
     shown_face: ShownFace,
     transform: Transform,
+    hovered: Hovered,
 }
 
 /// contains data shared between tiles, like their base front image, back image
@@ -136,6 +138,7 @@ impl TileBundle {
             material: material,
             shown_face: ShownFace::default(),
             transform: Transform::default(),
+            hovered: Hovered::default(),
         }
     }
 }
