@@ -30,7 +30,7 @@ pub fn layout_plugin(app: &mut App) {
 
 /// Vec2 denoting the position of where the hand should be rendered and a float length?
 #[derive(Component, Debug)]
-pub struct HandAnchor(pub Vec2);
+pub struct HandAnchor(pub Vec2, pub Owner);
 
 /// IVec2 denoting the number of tiles on the x and y
 #[derive(Component, Debug)]
@@ -86,8 +86,9 @@ fn layout_hand(
     tile_collections: Query<&TileCollection>,
     all_tiles: Query<&Slot>,
     mut move_tiles_writer: MessageWriter<MoveTile>,
+    mut flip_tiles_writer: MessageWriter<FlipTile>,
 ) {
-    for (hand_entity, &HandAnchor(anchor_pos)) in hand_anchors {
+    for (hand_entity, &HandAnchor(anchor_pos, owner)) in hand_anchors {
         let tile_iter: Vec<_> = tile_collections.iter_descendants(hand_entity).collect();
 
         // collect all of the tiles that we own (filtering out non-tiles)
@@ -106,6 +107,8 @@ fn layout_hand(
                 id: *tile,
                 dest: new_tile_pos,
             });
+
+            flip_tiles_writer.write(FlipTile { id: *tile, owner });
         }
     }
 }

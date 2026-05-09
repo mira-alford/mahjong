@@ -107,12 +107,15 @@ fn init_level(
     // TODO: hand resizing system that uses window size
     commands.spawn((
         Owner::Player,
-        HandAnchor(Vec2::new(-TILE_WIDTH * 8.0, TILE_HEIGHT * 4.5)),
+        HandAnchor(
+            Vec2::new(-TILE_WIDTH * 8.0, -TILE_HEIGHT * 4.5),
+            Owner::Player,
+        ),
         TileCollection::default(),
     ));
     commands.spawn((
         Owner::AI,
-        HandAnchor(Vec2::new(-TILE_WIDTH * 8.0, -TILE_HEIGHT * 4.5)),
+        HandAnchor(Vec2::new(-TILE_WIDTH * 8.0, TILE_HEIGHT * 4.5), Owner::AI),
         TileCollection::default(),
     ));
 
