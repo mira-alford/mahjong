@@ -102,7 +102,11 @@ fn layout_hand(
                 cur_offset += TILE_WIDTH;
             }
 
-            let new_tile_pos = anchor_pos + Vec2::X * cur_offset;
+            let new_tile_pos = match owner {
+                Owner::AI => anchor_pos - Vec2::X * cur_offset,
+                Owner::Player => anchor_pos + Vec2::X * cur_offset,
+            };
+
             move_tiles_writer.write(MoveTile {
                 id: *tile,
                 dest: new_tile_pos,

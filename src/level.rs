@@ -115,7 +115,7 @@ fn init_level(
     ));
     commands.spawn((
         Owner::AI,
-        HandAnchor(Vec2::new(-TILE_WIDTH * 8.0, TILE_HEIGHT * 4.5), Owner::AI),
+        HandAnchor(Vec2::new(TILE_WIDTH * 8.0, TILE_HEIGHT * 4.5), Owner::AI),
         TileCollection::default(),
     ));
 
