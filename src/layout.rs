@@ -10,7 +10,7 @@ use rand::seq::{IndexedRandom, SliceRandom};
 use rand::{RngExt, SeedableRng};
 
 use crate::level::Owner;
-use crate::tile::{FlipTile, MoveCurve, MoveTile, TILE_HEIGHT, TILE_WIDTH};
+use crate::tile::{MoveCurve, MoveTile, RotateTile, TILE_HEIGHT, TILE_WIDTH};
 
 pub fn layout_plugin(app: &mut App) {
     app.add_systems(
@@ -25,7 +25,7 @@ pub fn layout_plugin(app: &mut App) {
     )
     .add_systems(FixedUpdate, transfer_tiles)
     .add_message::<TransferTile>()
-    .add_message::<FlipTile>();
+    .add_message::<RotateTile>();
 }
 
 /// Vec2 denoting the position of where the hand should be rendered and a float length?
@@ -86,7 +86,7 @@ fn layout_hand(
     tile_collections: Query<&TileCollection>,
     all_tiles: Query<&Slot>,
     mut move_tiles_writer: MessageWriter<MoveTile>,
-    mut flip_tiles_writer: MessageWriter<FlipTile>,
+    mut flip_tiles_writer: MessageWriter<RotateTile>,
 ) {
     for (hand_entity, &HandAnchor(anchor_pos, owner)) in hand_anchors {
         let tile_iter: Vec<_> = tile_collections.iter_descendants(hand_entity).collect();
@@ -112,7 +112,7 @@ fn layout_hand(
                 dest: new_tile_pos,
             });
 
-            flip_tiles_writer.write(FlipTile { id: *tile, owner });
+            flip_tiles_writer.write(RotateTile { id: *tile, owner });
         }
     }
 }
@@ -128,7 +128,7 @@ fn layout_discard(
     discard_anchors: Query<(Entity, &DiscardAnchor)>,
     tile_collections: Query<&TileCollection>,
     mut move_tiles_writer: MessageWriter<MoveTile>,
-    mut flip_tiles_writer: MessageWriter<FlipTile>,
+    mut flip_tiles_writer: MessageWriter<RotateTile>,
 ) {
     for (discard_entity, &DiscardAnchor(anchorpos, discard_layout_width, player_kind)) in
         discard_anchors
@@ -155,7 +155,7 @@ fn layout_discard(
                 dest: new_pos,
             });
 
-            flip_tiles_writer.write(FlipTile {
+            flip_tiles_writer.write(RotateTile {
                 id: tile,
                 owner: player_kind,
             });

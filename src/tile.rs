@@ -19,9 +19,9 @@ impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(TileMaterialPlugin {})
             .add_systems(Update, (lerp_tiles, update_tile_materials))
-            .add_systems(FixedPostUpdate, (move_tile, flip_tile))
+            .add_systems(FixedPostUpdate, (move_tile, rotate_tile))
             .add_message::<MoveTile>()
-            .add_message::<FlipTile>();
+            .add_message::<RotateTile>();
     }
 }
 
@@ -32,7 +32,7 @@ pub struct MoveTile {
 }
 
 #[derive(Message)]
-pub struct FlipTile {
+pub struct RotateTile {
     pub id: Entity,
     pub owner: Owner,
 }
@@ -235,8 +235,9 @@ fn move_tile(
     }
 }
 
-fn flip_tile(mut messages: MessageReader<FlipTile>, mut query: Query<&mut Transform>) {
-    for &FlipTile { id, owner } in messages.read() {
+/// rotates the tile 180 degrees
+fn rotate_tile(mut messages: MessageReader<RotateTile>, mut query: Query<&mut Transform>) {
+    for &RotateTile { id, owner } in messages.read() {
         if let Ok(mut transform) = query.get_mut(id) {
             *transform = transform.with_rotation(Quat::from_rotation_z(match owner {
                 Owner::AI => core::f32::consts::TAU / 2f32,
