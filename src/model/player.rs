@@ -57,6 +57,7 @@ impl PlayerLoadout {
     pub fn actor_state(&self, hand: Vec<TileKind>) -> ActorState {
         ActorState {
             hp: self.base_hp,
+            max_hp: self.base_hp,
             shield: self.base_shield,
             hand,
             discard: Vec::new(),
@@ -70,6 +71,7 @@ impl PlayerLoadout {
 #[derive(Component)]
 pub struct ActorState {
     pub hp: i32,
+    pub max_hp: i32,
     pub shield: i32,
     /// The actor's hand (13 tiles to start with)
     pub hand: Vec<TileKind>,
@@ -93,6 +95,7 @@ impl ActorState {
     pub fn default_enemy(hand: Vec<TileKind>) -> Self {
         ActorState {
             hp: 100,
+            max_hp: 100,
             shield: 0,
             hand,
             discard: Vec::new(),
