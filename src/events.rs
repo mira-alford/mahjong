@@ -6,7 +6,10 @@ use crate::{
     layout::{Anchor, TileCollection, TransferTile},
     level::{HealthBar, LevelState, Owner},
     model::{game::GameModel, player::ActorState},
-    tile::{Tile, kind::TileKind},
+    tile::{
+        Tile,
+        kind::{Dragon, Honor, TileKind},
+    },
 };
 
 pub fn event_plugin(app: &mut App) {
@@ -93,7 +96,33 @@ fn draw_tile_msg_handler(
     }
 }
 
-fn discard_tile_msg_handler(mut messages: MessageReader<DiscardTileMsg>, mut commands: Commands) {}
+fn discard_tile_msg_handler(
+    mut messages: MessageReader<DiscardTileMsg>,
+    mut commands: Commands,
+    mut transfer: MessageWriter<TileTransferMsg>,
+    actors: Query<(&mut ActorState, &Owner)>,
+) {
+    if let Some(DiscardTileMsg(loc, tile)) = messages.read().next() {
+        for (mut actor, owner) in actors {
+            if *owner == Owner::Player {
+                let added_tile = actor.discard_tile(*loc);
+                transfer.write(TileTransferMsg {
+                    start: *loc,
+                    end: TileLocation::Discard(Owner::Player),
+                    tile: *tile,
+                });
+
+                if matches!(loc, TileLocation::Hand(..)) {
+                    transfer.write(TileTransferMsg {
+                        start: TileLocation::Draw(Owner::Player),
+                        end: TileLocation::Hand(Owner::Player, 0),
+                        tile: added_tile.unwrap(),
+                    });
+                }
+            }
+        }
+    }
+}
 
 fn play_tiles_msg_handler(mut messages: MessageReader<PlayTilesMsg>, mut commands: Commands) {}
 

@@ -242,15 +242,25 @@ impl ActorState {
     /// Discards a tile from the hand, or from the drawn tile (if it exists).
     ///
     /// The location should not be Drawn if there is no drawn tile.
-    pub fn discard_tile(&mut self, location: TileLocation) {
+    ///
+    /// Returns a tile kind containing the tile added to the hand if the drawn tile was added to
+    /// the hand.
+    pub fn discard_tile(&mut self, location: TileLocation) -> Option<TileKind> {
         match location {
             TileLocation::Draw(_) => {
                 if let Some(x) = self.drawn_tile.take() {
-                    self.discard.push(x)
+                    self.discard.push(x);
                 }
+                None
             }
             TileLocation::Hand(_, ix) => {
                 self.discard.push(self.hand.remove(ix));
+                if let Some(tile) = self.drawn_tile.take() {
+                    self.hand.push(tile);
+                    self.hand.sort();
+                    return Some(tile);
+                }
+                None
             }
             _ => unreachable!(),
         }

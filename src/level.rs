@@ -315,6 +315,7 @@ fn deal_tiles(
     mut counter: Local<usize>,
     mut model: ResMut<GameModel>,
     mut oneshot: Local<bool>,
+    mut actors: Query<(&mut ActorState, &Owner)>,
 ) {
     /*
     timer.0.tick(time.delta());
@@ -418,7 +419,14 @@ fn deal_tiles(
         });
     }
     enemy_hand.sort();
-    dbg!(enemy_hand);
+    dbg!(&enemy_hand);
+
+    for (mut actor, owner) in actors {
+        match owner {
+            Owner::Player => actor.hand = player_hand.clone(),
+            Owner::AI => actor.hand = enemy_hand.clone(),
+        }
+    }
 
     next_state.set(LevelState::Draw);
 }
