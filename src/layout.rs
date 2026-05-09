@@ -165,33 +165,38 @@ fn layout_wall(
     all_tiles: Query<&Slot>,
     mut move_tiles_writer: MessageWriter<MoveTile>,
 ) {
-    let mut rng = StdRng::seed_from_u64(67); // -\_o_o_/^
     let Some((wall_entity, wall_anchor)) = wall_anchor.iter().next() else {
         return;
     };
 
     let dims = wall_anchor.0.as_vec2() * Vec2::new(TILE_WIDTH, TILE_HEIGHT);
 
-    let mut rows = (0..=(wall_anchor.0.x))
+    let top = (0..=(wall_anchor.0.x))
         .map(|i| i as f32 * TILE_WIDTH)
-        .cartesian_product([0.0, dims.y].into_iter())
-        .map(|(x, y)| Vec2::new(x, y) - dims / 2.0)
+        .map(|x| Vec2::new(x, dims.y) - dims / 2.0)
         .collect_vec();
-    let mut cols = (0..=(wall_anchor.0.y))
+    let bottom = (0..=(wall_anchor.0.x))
+        .rev()
+        .map(|i| i as f32 * TILE_WIDTH)
+        .map(|x| Vec2::new(x, 0.0) - dims / 2.0)
+        .collect_vec();
+    let right = (0..=(wall_anchor.0.y))
         .map(|i| i as f32 * TILE_HEIGHT)
-        .cartesian_product([0.0, dims.x].into_iter())
-        .map(|(y, x)| Vec2::new(x, y) - dims / 2.0)
+        .map(|y| Vec2::new(dims.x, y) - dims / 2.0)
+        .collect_vec();
+    let left = (0..=(wall_anchor.0.y))
+        .rev()
+        .map(|i| i as f32 * TILE_HEIGHT)
+        .map(|y| Vec2::new(0.0, y) - dims / 2.0)
         .collect_vec();
 
-    rows.append(&mut cols);
-    let mut positions = rows;
-
-    positions.shuffle(&mut rng);
-    let mut i = 0;
+    let positions = [top, right, bottom, left].concat();
 
     for tile_entity in tile_collections.iter_descendants(wall_entity) {
-        let pos = positions.get(i).unwrap();
-        i = (i + 1) % positions.len();
+        let Ok(slot) = all_tiles.get(tile_entity) else {
+            continue;
+        };
+        let pos = positions.get(slot.0 as usize % positions.len()).unwrap();
 
         move_tiles_writer.write(MoveTile {
             id: tile_entity,
