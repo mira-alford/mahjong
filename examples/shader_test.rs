@@ -1,6 +1,7 @@
 use bevy::prelude::*;
+use mahjong::tile::kind::{Dragon, Honor, TileKind};
 use mahjong::tile::render::TileMaterial;
-use mahjong::tile::spawn_tile;
+use mahjong::tile::{SharedTileData, TileBundle};
 
 fn main() {
     App::new()
@@ -21,14 +22,15 @@ fn main() {
             |mut meshes: ResMut<Assets<Mesh>>,
              mut materials: ResMut<Assets<TileMaterial>>,
              mut commands: Commands,
+             shared_tile_data: Res<SharedTileData>,
              asset_server: Res<AssetServer>| {
                 commands.spawn(Camera2d);
-                spawn_tile(
-                    &mut commands,
-                    &meshes.add(Rectangle::from_size(Vec2::new(1.0, 4.0 / 3.0))),
+                commands.spawn(TileBundle::new(
                     &mut materials,
                     asset_server.clone(),
-                );
+                    shared_tile_data.clone(),
+                    TileKind::Honor(Honor::Dragon(Dragon::Red)),
+                ));
             },
         )
         .run();
