@@ -194,7 +194,7 @@ pub fn discard_tile(
     messages.write(msg);
 
     info!(state=?LevelState::Play, "transitioning state");
-    next_state.set(LevelState::Play);
+    // next_state.set(LevelState::Play);
 }
 pub fn play_tile(
     anchor: Anchor,

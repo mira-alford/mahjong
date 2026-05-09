@@ -3,7 +3,7 @@ use itertools::Itertools;
 use std::ops::Neg;
 
 use crate::level::Owner;
-use crate::tile::{MoveTile, RotateTile, TILE_HEIGHT, TILE_WIDTH};
+use crate::tile::{MoveTile, RotateTile, TILE_HEIGHT, TILE_WIDTH, Tile};
 
 /// Hand Anchor
 #[derive(Copy, Debug, Clone)]
@@ -55,6 +55,7 @@ pub fn layout_plugin(app: &mut App) {
 fn layout_all_the_things(
     anchor_query: Query<(Entity, &Anchor, Option<&Owner>)>,
     tile_collections: Query<&TileCollection>,
+    tiles_query: Query<&Tile>,
     mut move_tiles_writer: MessageWriter<MoveTile>,
     mut flip_tiles_writer: MessageWriter<RotateTile>,
 ) {
@@ -65,7 +66,10 @@ fn layout_all_the_things(
             Anchor::Hand(hand) => layout_hand(
                 *hand,
                 *owner_opt.expect("every hand anchor should also have a owner"),
-                tiles,
+                tiles
+                    .iter()
+                    .map(|e| (*e, tiles_query.get(*e).expect("be civil")))
+                    .collect(),
                 &mut move_tiles_writer,
                 &mut flip_tiles_writer,
             ),
@@ -88,12 +92,16 @@ fn layout_all_the_things(
 fn layout_hand(
     hand: Hand,
     owner: Owner,
-    tiles: Vec<Entity>,
+    tiles: Vec<(Entity, &Tile)>,
     move_tiles_writer: &mut MessageWriter<MoveTile>,
     flip_tiles_writer: &mut MessageWriter<RotateTile>,
 ) {
     // collect all of the tiles that we own (filtering out non-tiles)
-    for (i, tile) in tiles.iter().sorted().enumerate() {
+    for (i, (tile_entity, tile)) in tiles
+        .iter()
+        .sorted_by_key(|(tile_entity, tile)| tile.kind)
+        .enumerate()
+    {
         let mut cur_offset = i as f32 * TILE_WIDTH;
         if i == 13 {
             cur_offset += TILE_WIDTH;
@@ -105,11 +113,14 @@ fn layout_hand(
         };
 
         move_tiles_writer.write(MoveTile {
-            id: *tile,
+            id: *tile_entity,
             dest: new_tile_pos,
         });
 
-        flip_tiles_writer.write(RotateTile { id: *tile, owner });
+        flip_tiles_writer.write(RotateTile {
+            id: *tile_entity,
+            owner,
+        });
     }
 }
 

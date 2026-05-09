@@ -280,6 +280,7 @@ pub fn tile_click_oberver(
     {
         if child == event_target {
             index = i;
+            break;
         }
     }
 
