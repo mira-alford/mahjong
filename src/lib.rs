@@ -2,7 +2,7 @@
 
 pub mod layout;
 pub mod level;
-pub mod player;
+pub mod model;
 pub mod player_select;
 pub mod tile;
 pub mod title_menu;

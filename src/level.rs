@@ -8,7 +8,7 @@ use crate::{
         DiscardAnchor, HandAnchor, OwnedTile, Slot, TileCollection, TransferTile, UnusedAnchor,
         WallAnchor,
     },
-    player::{ActorState, PlayerLoadout},
+    model::player::{ActorState, PlayerLoadout},
     tile::{MoveCurve, TILE_HEIGHT, TILE_WIDTH, render::TileMaterial, spawn_tile},
 };
 
