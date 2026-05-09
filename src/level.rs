@@ -100,7 +100,10 @@ fn init_level(
 
     // Spawn in the wall!
     // TODO: wall resizing system that uses window size
-    commands.spawn((WallAnchor(Vec2::ONE * 800.0), TileCollection::default()));
+    commands.spawn((
+        WallAnchor(Vec2::ONE * 800.0, IVec2::ONE * 13),
+        TileCollection::default(),
+    ));
 
     // Spawn in 2 hands:
     // TODO: hand resizing system that uses window size
@@ -115,15 +118,16 @@ fn init_level(
         TileCollection::default(),
     ));
 
+    const DISCARD_LAYOUT_TILE_WIDTH: u8 = 8;
     // Spawn in 2 discards
     commands.spawn((
         Owner::Player,
-        DiscardAnchor(Vec2::new(-200.0, 0.0)),
+        DiscardAnchor(Vec2::new(-200.0, 0.0), DISCARD_LAYOUT_TILE_WIDTH),
         TileCollection::default(),
     ));
     commands.spawn((
         Owner::AI,
-        DiscardAnchor(Vec2::new(200.0, 0.0)),
+        DiscardAnchor(Vec2::new(200.0, 0.0), DISCARD_LAYOUT_TILE_WIDTH),
         TileCollection::default(),
     ));
 
