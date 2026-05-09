@@ -7,6 +7,7 @@ use crate::{
         DiscardAnchor, HandAnchor, OwnedTile, PlayerSide, Slot, TileCollection, TransferTile,
         UnusedAnchor, WallAnchor,
     },
+    player::{ActorState, PlayerLoadout},
     tile::{MoveCurve, render::TileMaterial, spawn_tile},
 };
 
@@ -77,6 +78,7 @@ fn init_level(
     mut materials: ResMut<Assets<TileMaterial>>,
     mut commands: Commands,
     mut next_state: ResMut<NextState<LevelState>>,
+    player_loadout: Res<PlayerLoadout>,
     asset_server: Res<AssetServer>,
 ) {
     let tile_mesh = meshes.add(Rectangle::from_size(Vec2::new(1.0, 4.0 / 3.0)));
@@ -135,6 +137,10 @@ fn init_level(
         DiscardAnchor(Vec2::new(200.0, 0.0), DISCARD_LAYOUT_WIDTH, PlayerSide::Up),
         TileCollection::default(),
     ));
+
+    // Spawn the player and enemy state
+    commands.spawn((Owner::Player, player_loadout.actor_state()));
+    commands.spawn((Owner::AI, ActorState::default_enemy()));
 
     // Go to wall building
     next_state.set(LevelState::BuildWall);

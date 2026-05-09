@@ -50,6 +50,15 @@ impl PlayerLoadout {
             call_damage: 30,
         }
     }
+
+    pub fn actor_state(&self) -> ActorState {
+        ActorState {
+            hp: self.base_hp,
+            shield: self.base_shield,
+            hand: Vec::new(),
+            sets: Vec::new(),
+        }
+    }
 }
 
 /// The state of an "actor" (i.e., player or enemy)
@@ -62,4 +71,15 @@ pub struct ActorState {
     /// Sets created by stealing
     /// This is a vec of vecs since each set is distinct
     pub sets: Vec<Vec<TileKind>>,
+}
+
+impl ActorState {
+    pub fn default_enemy() -> Self {
+        ActorState {
+            hp: 100,
+            shield: 0,
+            hand: Vec::new(),
+            sets: Vec::new(),
+        }
+    }
 }
