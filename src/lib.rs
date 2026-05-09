@@ -8,7 +8,7 @@ pub mod player_select;
 pub mod tile;
 pub mod title_menu;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, window::WindowResolution};
 
 pub struct MahjongPlugin;
 
@@ -28,11 +28,23 @@ impl Plugin for MahjongPlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<GameState>()
             .add_systems(Startup, setup)
-            .add_plugins((MeshPickingPlugin, tile::TilePlugin))
-            .add_plugins(title_menu::title_menu_plugin)
-            .add_plugins(player_select::player_select_plugin)
-            .add_plugins(level::level_plugin)
-            .add_plugins(events::event_plugin)
-            .add_plugins(layout::layout_plugin);
+            .add_plugins((
+                MeshPickingPlugin,
+                DefaultPlugins.set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "mahjong".into(),
+                        present_mode: bevy::window::PresentMode::AutoVsync,
+                        resolution: WindowResolution::new(1280, 720),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+                tile::TilePlugin,
+                title_menu::title_menu_plugin,
+                player_select::player_select_plugin,
+                level::level_plugin,
+                events::event_plugin,
+                layout::layout_plugin,
+            ));
     }
 }
