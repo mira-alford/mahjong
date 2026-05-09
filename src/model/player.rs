@@ -79,6 +79,13 @@ pub struct ActorState {
     pub drawn_tile: Option<TileKind>,
 }
 
+/// A "set of tiles".
+pub enum TileSet {
+    Sequence { suit: Suit, lowest_number: u8 },
+    Triple(TileKind),
+    Pair(TileKind),
+}
+
 impl ActorState {
     pub fn default_enemy(hand: Vec<TileKind>) -> Self {
         ActorState {
@@ -93,6 +100,59 @@ impl ActorState {
     pub fn draw_tile(&mut self, tile: TileKind) {
         assert!(self.drawn_tile.is_none());
         self.drawn_tile = Some(tile);
+    }
+
+    /// Returns a list of sets that can be made from stealing the tile that was just discarded.
+    pub fn possible_steals(&self, discarded_tile: TileKind) -> Vec<TileSet> {
+        // THIS CODE SUCKS ASS BUT I DONT HAVE THE TIME TO MAKE IT GOOD
+        let mut res = vec![];
+
+        if self
+            .hand
+            .iter()
+            .filter(|tile| **tile == discarded_tile)
+            .count()
+            >= 2
+        {
+            res.push(TileSet::Triple(discarded_tile));
+        }
+
+        if let TileKind::Number(suit, num) = discarded_tile {
+            if num <= 7 {
+                if self.hand.contains(&TileKind::Number(suit, num + 1))
+                    && self.hand.contains(&TileKind::Number(suit, num + 2))
+                {
+                    res.push(TileSet::Sequence {
+                        suit,
+                        lowest_number: num,
+                    });
+                }
+            }
+
+            if num <= 8 && num >= 2 {
+                if self.hand.contains(&TileKind::Number(suit, num - 1))
+                    && self.hand.contains(&TileKind::Number(suit, num + 1))
+                {
+                    res.push(TileSet::Sequence {
+                        suit,
+                        lowest_number: num - 1,
+                    });
+                }
+            }
+
+            if num >= 3 {
+                if self.hand.contains(&TileKind::Number(suit, num - 2))
+                    && self.hand.contains(&TileKind::Number(suit, num - 1))
+                {
+                    res.push(TileSet::Sequence {
+                        suit,
+                        lowest_number: num - 2,
+                    });
+                }
+            }
+        }
+
+        res
     }
 
     /// Discards a tile from the hand, or from the drawn tile (if it exists).
