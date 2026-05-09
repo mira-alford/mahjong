@@ -5,8 +5,11 @@ use bevy::prelude::*;
 use std::default;
 use std::time::Instant;
 
-use crate::layout::{LAYOUT_HAND_MOVE_A, LAYOUT_HAND_MOVE_B};
-use crate::level::Owner;
+use crate::GameState;
+use crate::events::{TileLocation, discard_tile, draw_tile, play_tile};
+use crate::layout::{Anchor, LAYOUT_HAND_MOVE_A, LAYOUT_HAND_MOVE_B, OwnedTile, TileCollection};
+use crate::level::{LevelState, Owner};
+use crate::model::game::GameModel;
 
 use self::kind::{Suit, TileKind};
 use self::render::{TileMaterial, TileMaterialPlugin};
@@ -39,7 +42,7 @@ pub struct RotateTile {
     pub owner: Owner,
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Copy, Clone)]
 pub struct Tile {
     pub kind: TileKind,
 }
@@ -142,7 +145,7 @@ impl TileBundle {
 
 /// the currently up facing face of a tile, i.e. the face you can see
 #[derive(Component, Default)]
-struct ShownFace(TileFace);
+pub struct ShownFace(TileFace);
 
 #[derive(Default)]
 enum TileFace {
@@ -236,4 +239,56 @@ fn rotate_tile(mut messages: MessageReader<RotateTile>, mut query: Query<&mut Tr
             }));
         }
     }
+}
+
+pub fn tile_click_oberver(
+    event: On<Pointer<Click>>,
+    entities: Query<&Tile>,
+    tile_collections: Query<&OwnedTile>,
+    anchors: Query<(&Anchor, Option<&Owner>)>,
+    state: Res<State<LevelState>>,
+    game_state: Res<GameModel>,
+) {
+    let event_target = event.event_target();
+
+    let Some(ancestor) = tile_collections.iter_ancestors(event_target).next() else {
+        warn!("Unable to find ancestor for clicked tile");
+        return;
+    };
+
+    let Ok((&anchor, owner)) = anchors.get(ancestor) else {
+        warn!("Unable to find anchor for clicked tile parent");
+        return;
+    };
+
+    let Ok(tile) = entities.get(event_target) else {
+        warn!("Unable to fined tile");
+        return;
+    };
+
+    match state.get() {
+        LevelState::Draw => draw_tile(anchor, owner.copied()),
+
+        LevelState::Discard => discard_tile(anchor, owner.copied(), *tile),
+        LevelState::Play => play_tile(owner.copied()),
+        _ => return,
+    };
+    // match anchor {
+    //     Anchor::Hand(hand) => ,
+    //     Anchor::Wall(wall) => todo!(),
+    //     Anchor::Discard(discard) => todo!(),
+    //     Anchor::Unused(unused) => todo!(),
+    //     Anchor::Draw(draw) => todo!(),
+    // }
+
+    println!("clicked {:?}", event_target);
+
+    // let mut face = query
+    //     .get_mut(event_target)
+    //     .expect("expected clicked tile to have ShownFace componenet");
+
+    // match face.0 {
+    //     TileFace::Top => face.0 = TileFace::Bottom,
+    //     TileFace::Bottom => face.0 = TileFace::Top,
+    // }
 }

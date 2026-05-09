@@ -12,7 +12,7 @@ use crate::{
     },
     tile::{
         MoveCurve, SharedTileData, TILE_HEIGHT, TILE_WIDTH, TileBundle, kind::TileKind,
-        render::TileMaterial,
+        render::TileMaterial, tile_click_oberver,
     },
 };
 
@@ -22,7 +22,7 @@ struct TransitionTimer(Timer);
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, SubStates)]
 #[source(GameState = GameState::Game)]
 #[states(scoped_entities)]
-enum LevelState {
+pub enum LevelState {
     #[default]
     Init,
     /// Transfers from unused or discard tiles to the wall until all are settled.
@@ -30,18 +30,8 @@ enum LevelState {
     /// Transfers from walls to each hand (alternating) on repeat until both
     /// hands are at size 14. Then waits until the tiles settle.
     Deal,
-    /// On entry to this state, toggle whose turn it is to the other.
-    /// Transfer from the wall to a players "draw" location once.
     Draw,
-    /// Enable systems to allow the player to select a tile in their hand
-    /// and swap it. Once selected, go to the steal stage.
-    Swap,
-    /// Transition the tile into the secret "steal" pile. At any point
-    /// the other opponent can either steal or ignore the piece.
-    /// A steal event includes the piece they are replacing.
-    /// If no steal, transition to discard. If steal, transition into their hand.
-    Steal,
-    /// Ask the player if they want to play their hand. If no, go back to drawing.
+    Discard,
     Play,
 }
 
@@ -121,6 +111,7 @@ fn init_level(
                 shared_tile_data.clone(),
                 TileKind::Blank,
             ))
+            .observe(tile_click_oberver)
             .id();
         commands.entity(tile_id).insert(OwnedTile(unused_id));
     }

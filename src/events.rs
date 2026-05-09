@@ -139,3 +139,15 @@ fn tile_transfer_msg_handler(
 
 fn health_update_msg_handler(mut messages: MessageReader<HealthUpdateMsg>, mut commands: Commands) {
 }
+
+pub fn draw_tile(anchor: Anchor, owner: Option<Owner>) {
+
+    // {
+    //     (Anchor::Wall(wall), None) => {
+    //     }
+    //     (Anchor::Discard(discard), Some(owner)) if *owner != game_state.turn => return,
+    //     _ => return,
+    // },
+}
+pub fn discard_tile(anchor: Anchor, owner: Option<Owner>, tile: Tile) {}
+pub fn play_tile(owner: Option<Owner>) {}

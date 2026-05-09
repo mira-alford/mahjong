@@ -36,7 +36,7 @@ pub struct Unused;
 #[derive(Copy, Debug, Clone)]
 pub struct Draw(pub Vec2);
 
-#[derive(Component)]
+#[derive(Component, Copy, Clone, Debug)]
 pub enum Anchor {
     Hand(Hand),
     Wall(Wall),
@@ -59,7 +59,6 @@ fn layout_all_the_things(
     mut flip_tiles_writer: MessageWriter<RotateTile>,
 ) {
     for (anchor_entity, anchor, owner_opt) in anchor_query {
-        info!("handling the thing");
         let tiles: Vec<_> = tile_collections.iter_descendants(anchor_entity).collect();
 
         match anchor {
@@ -78,12 +77,8 @@ fn layout_all_the_things(
                 &mut move_tiles_writer,
                 &mut flip_tiles_writer,
             ),
-            Anchor::Unused(_) => {
-                info!("do the things");
-            }
-            Anchor::Draw(_) => {
-                info!("do the things with the draw");
-            }
+            Anchor::Unused(_) => {}
+            Anchor::Draw(_) => {}
         };
     }
 }
