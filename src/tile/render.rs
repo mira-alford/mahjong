@@ -14,6 +14,8 @@ impl Plugin for TileMaterialPlugin {
     }
 }
 
+/// [`Material2d`] handling rendering, animations and effects on [`Tile`]s. Use
+/// the methods on [`TileMaterial`] to control it
 #[derive(Asset, AsBindGroup, Debug, Clone, TypePath)]
 pub struct TileMaterial {
     #[texture(0)]
@@ -24,6 +26,9 @@ pub struct TileMaterial {
 }
 
 impl TileMaterial {
+    /// Create a new tile material with the given texture as the front face
+    ///
+    /// See the bevy docs on asset loading to see how to get an image handle
     pub fn new(texture: Handle<Image>) -> Self {
         Self {
             texture,
