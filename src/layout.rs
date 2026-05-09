@@ -51,7 +51,9 @@ pub fn layout_plugin(app: &mut App) {
         .add_systems(FixedUpdate, transfer_tiles)
         // .add_systems(FixedUpdate, flip_hidden_tiles)
         .add_message::<TransferTile>()
-        .add_message::<RotateTile>();
+        .add_message::<RotateTile>()
+        .insert_resource(ClearColor(Color::srgb_u8(60, 153, 111)));
+    // 46cc8c
 }
 
 fn layout_all_the_things(
