@@ -1,16 +1,34 @@
-use std::ops::Neg;
-use std::time::Instant;
-
-use bevy::camera::Viewport;
 use bevy::prelude::*;
 use itertools::Itertools;
-use rand::distr::{Distribution, Uniform};
-use rand::rngs::{SmallRng, StdRng};
-use rand::seq::{IndexedRandom, SliceRandom};
-use rand::{RngExt, SeedableRng};
+use std::ops::Neg;
 
 use crate::level::Owner;
-use crate::tile::{MoveCurve, MoveTile, RotateTile, TILE_HEIGHT, TILE_WIDTH};
+use crate::tile::{MoveTile, RotateTile, TILE_HEIGHT, TILE_WIDTH};
+
+pub trait Layout {}
+
+pub struct Hand;
+pub struct Wall;
+pub struct Discard;
+pub struct Unused;
+pub struct Draw;
+
+#[derive(Component)]
+pub enum Anchor {
+    Hand(Hand),
+    Wall(Wall),
+    Discard(Discard),
+    Unused(Unused),
+    Draw(Draw),
+}
+
+impl Layout for Hand {}
+impl Layout for Wall {}
+impl Layout for Discard {}
+impl Layout for Unused {}
+impl Layout for Draw {}
+
+impl Layout for Anchor {}
 
 pub fn layout_plugin(app: &mut App) {
     app.add_systems(
