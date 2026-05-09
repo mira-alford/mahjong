@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use itertools::Itertools;
+use rand::seq::SliceRandom;
 use std::{collections::HashSet, time::Duration};
 
 use crate::{
@@ -8,7 +9,10 @@ use crate::{
         DiscardAnchor, HandAnchor, OwnedTile, Slot, TileCollection, TransferTile, UnusedAnchor,
         WallAnchor,
     },
-    model::player::{ActorState, PlayerLoadout},
+    model::{
+        game::GameModel,
+        player::{ActorState, PlayerLoadout},
+    },
     tile::{MoveCurve, TILE_HEIGHT, TILE_WIDTH, render::TileMaterial, spawn_tile},
 };
 
@@ -56,7 +60,8 @@ pub enum Owner {
 }
 
 pub fn level_plugin(app: &mut App) {
-    app.init_resource::<Turn>()
+    app.init_resource::<GameModel>()
+        .init_resource::<Turn>()
         .insert_resource(TransitionTimer(Timer::new(
             Duration::from_millis(1),
             TimerMode::Repeating,
@@ -79,9 +84,25 @@ fn init_level(
     mut materials: ResMut<Assets<TileMaterial>>,
     mut commands: Commands,
     mut next_state: ResMut<NextState<LevelState>>,
+    mut game_model: ResMut<GameModel>,
     player_loadout: Res<PlayerLoadout>,
     asset_server: Res<AssetServer>,
 ) {
+    // Init the model to a good state
+    let mut deck = player_loadout.full_deck.clone();
+    let mut rng = rand::rng();
+    deck.shuffle(&mut rng);
+    let mut player_hand = deck.split_off(deck.len() - 13);
+    player_hand.sort();
+    let mut enemy_hand = deck.split_off(deck.len() - 13);
+    enemy_hand.sort();
+
+    game_model.wall = deck;
+
+    // Spawn the player and enemy state
+    commands.spawn((Owner::Player, player_loadout.actor_state(player_hand)));
+    commands.spawn((Owner::AI, ActorState::default_enemy(enemy_hand)));
+
     let tile_mesh = meshes.add(Rectangle::from_size(Vec2::new(TILE_WIDTH, TILE_HEIGHT)));
 
     // Spawn in the unused pile.
@@ -134,10 +155,6 @@ fn init_level(
         DiscardAnchor(Vec2::new(200.0, 0.0), DISCARD_LAYOUT_WIDTH, Owner::AI),
         TileCollection::default(),
     ));
-
-    // Spawn the player and enemy state
-    commands.spawn((Owner::Player, player_loadout.actor_state()));
-    commands.spawn((Owner::AI, ActorState::default_enemy()));
 
     // Go to wall building
     next_state.set(LevelState::BuildWall);
