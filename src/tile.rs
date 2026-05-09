@@ -1,12 +1,17 @@
 pub mod kind;
 pub mod render;
 
+use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
-use std::default;
+use itertools::Itertools;
 use std::time::Instant;
 
-use crate::layout::{LAYOUT_HAND_MOVE_A, LAYOUT_HAND_MOVE_B};
-use crate::level::Owner;
+use crate::events::{
+    DiscardTileMsg, DrawTileMsg, PlayTilesMsg, discard_tile, draw_tile, play_tile,
+};
+use crate::layout::{Anchor, LAYOUT_HAND_MOVE_A, LAYOUT_HAND_MOVE_B, OwnedTile, TileCollection};
+use crate::level::{LevelState, Owner};
+use crate::model::game::GameModel;
 
 use self::kind::{Suit, TileKind};
 use self::render::{TileMaterial, TileMaterialPlugin};
@@ -39,7 +44,7 @@ pub struct RotateTile {
     pub owner: Owner,
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Copy, Clone)]
 pub struct Tile {
     pub kind: TileKind,
 }
@@ -51,6 +56,7 @@ pub struct TileBundle {
     material: MeshMaterial2d<TileMaterial>,
     shown_face: ShownFace,
     transform: Transform,
+    hovered: Hovered,
 }
 
 /// contains data shared between tiles, like their base front image, back image
@@ -136,16 +142,17 @@ impl TileBundle {
             material: material,
             shown_face: ShownFace::default(),
             transform: Transform::default(),
+            hovered: Hovered::default(),
         }
     }
 }
 
 /// the currently up facing face of a tile, i.e. the face you can see
 #[derive(Component, Default)]
-struct ShownFace(TileFace);
+pub struct ShownFace(pub TileFace);
 
 #[derive(Default)]
-enum TileFace {
+pub enum TileFace {
     #[default]
     Top,
     Bottom,
@@ -236,4 +243,84 @@ fn rotate_tile(mut messages: MessageReader<RotateTile>, mut query: Query<&mut Tr
             }));
         }
     }
+}
+
+pub fn tile_click_oberver(
+    event: On<Pointer<Click>>,
+    entities: Query<&Tile>,
+    owned_tile: Query<&OwnedTile>,
+    tile_collections: Query<&TileCollection>,
+    anchors: Query<(&Anchor, Option<&Owner>)>,
+    level_state: Res<State<LevelState>>,
+    game_model: ResMut<GameModel>,
+
+    // behold the message writers
+    draw_messages: MessageWriter<DrawTileMsg>,
+    discard_messages: MessageWriter<DiscardTileMsg>,
+    play_tile_messages: MessageWriter<PlayTilesMsg>,
+
+    // state transition
+    mut next_state: ResMut<NextState<LevelState>>,
+) {
+    let event_target = event.event_target();
+    info!(target=?event_target, "clicked tile");
+
+    if matches!(game_model.turn, Owner::AI) {
+        info!("don't do anything on the AI's turn, so we quit early :)");
+        return;
+    }
+
+    let Some(ancestor) = owned_tile.iter_ancestors(event_target).next() else {
+        warn!("Unable to find ancestor for clicked tile");
+        return;
+    };
+
+    let children = tile_collections.iter_descendants(ancestor);
+    let mut index = 0;
+    for (i, child) in children
+        .sorted_by_key(|c| entities.get(*c).ok().map(|t| t.kind))
+        .enumerate()
+    {
+        if child == event_target {
+            index = i;
+            break;
+        }
+    }
+
+    let Ok((&anchor, owner)) = anchors.get(ancestor) else {
+        warn!("Unable to find anchor for clicked tile parent");
+        return;
+    };
+
+    let Ok(tile) = entities.get(event_target) else {
+        warn!("Unable to fined tile");
+        return;
+    };
+
+    match &level_state.get() {
+        LevelState::Draw => draw_tile(
+            anchor,
+            owner.copied(),
+            game_model.into(),
+            draw_messages,
+            next_state,
+        ),
+        LevelState::Discard => discard_tile(
+            anchor,
+            owner.copied(),
+            *tile,
+            index,
+            game_model.into(),
+            discard_messages,
+            next_state,
+        ),
+        LevelState::Play => play_tile(
+            anchor,
+            owner.copied(),
+            game_model,
+            play_tile_messages,
+            next_state,
+        ),
+        _ => (),
+    };
 }

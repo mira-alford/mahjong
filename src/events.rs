@@ -4,7 +4,8 @@ use bevy::prelude::*;
 
 use crate::{
     layout::{Anchor, TileCollection, TransferTile},
-    level::Owner,
+    level::{LevelState, Owner},
+    model::game::GameModel,
     tile::{Tile, kind::TileKind},
 };
 
@@ -138,4 +139,91 @@ fn tile_transfer_msg_handler(
 }
 
 fn health_update_msg_handler(mut messages: MessageReader<HealthUpdateMsg>, mut commands: Commands) {
+}
+
+pub fn draw_tile(
+    anchor: Anchor,
+    owner: Option<Owner>,
+    state: Res<GameModel>,
+    mut messages: MessageWriter<DrawTileMsg>,
+    mut next_state: ResMut<NextState<LevelState>>,
+) {
+    let draw_location: TileLocation = match (anchor, owner) {
+        (Anchor::Wall(_), None) => TileLocation::Wall,
+        (Anchor::Discard(_), Some(discard_owner)) if state.turn != discard_owner => {
+            TileLocation::Discard(discard_owner)
+        }
+        _ => {
+            debug!(anchor=?anchor, owner=?owner,"not handling case in draw tile");
+            return;
+        }
+    };
+
+    let msg = DrawTileMsg(draw_location);
+    info!(msg=?msg, "sending message");
+    messages.write(msg);
+
+    info!(state=?LevelState::Discard, "transitioning state");
+    next_state.set(LevelState::Discard);
+}
+pub fn discard_tile(
+    anchor: Anchor,
+    owner: Option<Owner>,
+    tile: Tile,
+    index: usize,
+    state: Res<GameModel>,
+    mut messages: MessageWriter<DiscardTileMsg>,
+    mut next_state: ResMut<NextState<LevelState>>,
+) {
+    dbg!(&index);
+    let discard_location: TileLocation = match (anchor, owner) {
+        (Anchor::Hand(_), Some(hand_owner)) if state.turn == hand_owner => {
+            TileLocation::Hand(hand_owner, index) // TODO: Don't worry about it
+        }
+        (Anchor::Draw(_), Some(draw_owner)) if state.turn == draw_owner => {
+            TileLocation::Draw(draw_owner)
+        }
+        _ => {
+            debug!(anchor=?anchor, owner=?owner,"not handling case in discard tile");
+            return;
+        }
+    };
+
+    let msg = DiscardTileMsg(discard_location, tile.kind);
+    info!(msg=?msg, "sending message");
+    messages.write(msg);
+
+    info!(state=?LevelState::Play, "transitioning state");
+    // next_state.set(LevelState::Play);
+}
+pub fn play_tile(
+    anchor: Anchor,
+    owner_opt: Option<Owner>,
+    mut state: ResMut<GameModel>,
+    mut messages: MessageWriter<PlayTilesMsg>,
+    mut next_state: ResMut<NextState<LevelState>>,
+) {
+    // we can only play tiles when the tile we clicked belongs to the hand
+    // also, we can only play tiles when we click **our hand**
+    let owner: Owner = match (owner_opt, anchor) {
+        (Some(cur_owner), Anchor::Hand(_)) if cur_owner == state.turn => cur_owner,
+        _ => {
+            info!(anchor=?anchor, owner=?owner_opt,"not handling case in play tile");
+            return;
+        }
+    };
+
+    let msg = PlayTilesMsg(owner);
+    info!(msg=?msg, "sending message");
+    messages.write(msg);
+
+    // we swap the player's turn
+    state.turn = match &state.turn {
+        Owner::Player => Owner::AI,
+        Owner::AI => Owner::Player,
+    };
+
+    // go back to the draw state
+    info!(state=?LevelState::Draw, "transitioning state");
+    next_state.set(LevelState::Draw);
 }
