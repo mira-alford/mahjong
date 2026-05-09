@@ -1,3 +1,4 @@
+use std::ops::Neg;
 use std::time::Instant;
 
 use bevy::prelude::*;
@@ -13,7 +14,13 @@ use crate::tile::{MoveCurve, MoveTile, TILE_HEIGHT, TILE_WIDTH};
 pub fn layout_plugin(app: &mut App) {
     app.add_systems(
         FixedUpdate,
-        (layout_hand, layout_wall, resize_wall, resize_hand),
+        (
+            layout_hand,
+            layout_wall,
+            layout_discard,
+            resize_wall,
+            resize_hand,
+        ),
     )
     .add_systems(FixedUpdate, transfer_tiles)
     .add_message::<TransferTile>();
@@ -29,8 +36,15 @@ pub struct HandAnchor(pub Vec2, pub f32);
 pub struct WallAnchor(pub Vec2, pub IVec2);
 
 /// Vec2 denoting the position of where the discord pile should be rendered
+/// DiscardAnchor.1 is the maximum width in tile count for discard layouting
 #[derive(Component, Debug)]
-pub struct DiscardAnchor(pub Vec2);
+pub struct DiscardAnchor(pub Vec2, pub u8, pub PlayerSide);
+
+#[derive(Debug, Clone, Copy)]
+pub enum PlayerSide {
+    Up,
+    Down,
+}
 
 /// All the tiles atop eachother in a glorious heap.
 #[derive(Component, Debug)]
@@ -78,7 +92,7 @@ fn layout_hand(
     all_tiles: Query<&Slot>,
     mut move_tiles_writer: MessageWriter<MoveTile>,
 ) {
-    for (hand_entity, HandAnchor(anchor_pos, anchor_len)) in hand_anchors {
+    for (hand_entity, &HandAnchor(anchor_pos, anchor_len)) in hand_anchors {
         let tile_iter: Vec<_> = tile_collections.iter_descendants(hand_entity).collect();
 
         // collect all of the tiles that we own (filtering out non-tiles)
@@ -92,6 +106,55 @@ fn layout_hand(
             move_tiles_writer.write(MoveTile {
                 id: *tile,
                 dest: new_tile_pos,
+            });
+        }
+    }
+}
+
+// todo:
+// - layoutdiscard function: similar to layout wall. Should check what tiles are currently in discard and all tiles and the relationship between tiles and collections
+// for each discard, for each tile belonging to that discard;
+//
+// starts at position of the loops discard anchor, separates right by a tile width each time,
+// wraps around when it reaches the edge
+
+fn layout_discard(
+    discard_anchors: Query<(Entity, &DiscardAnchor)>,
+    tile_collections: Query<&TileCollection>,
+    mut move_tiles_writer: MessageWriter<MoveTile>,
+) {
+    // replace these with pixel width computed values
+    const TEMPORARY_DEBUGGING_CARD_WIDTH: f32 = 130f32;
+    const TEMPORARY_DEBUGGING_CARD_HEIGHT: f32 = 180f32;
+
+    for (discard_entity, &DiscardAnchor(anchorpos, discard_layout_width, player_side)) in
+        discard_anchors
+    {
+        let (width, height) = match player_side {
+            // todo flip the ai's (playerside up) cards upside down (requires transform stuff)
+            PlayerSide::Down => (
+                TEMPORARY_DEBUGGING_CARD_WIDTH,
+                TEMPORARY_DEBUGGING_CARD_HEIGHT.neg(),
+            ),
+            PlayerSide::Up => (
+                TEMPORARY_DEBUGGING_CARD_WIDTH.neg(),
+                TEMPORARY_DEBUGGING_CARD_HEIGHT,
+            ),
+        };
+
+        for (ix, tile) in tile_collections
+            .iter_descendants(discard_entity)
+            .enumerate()
+        {
+            let new_pos = anchorpos
+                + Vec2::new(
+                    (ix % (discard_layout_width as usize)) as f32 * width,
+                    (ix / (discard_layout_width as usize)) as f32 * height,
+                );
+
+            move_tiles_writer.write(MoveTile {
+                id: tile,
+                dest: new_pos,
             });
         }
     }

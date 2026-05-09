@@ -4,8 +4,8 @@ use std::{collections::HashSet, time::Duration};
 use crate::{
     GameState,
     layout::{
-        DiscardAnchor, HandAnchor, OwnedTile, Slot, TileCollection, TransferTile, UnusedAnchor,
-        WallAnchor,
+        DiscardAnchor, HandAnchor, OwnedTile, PlayerSide, Slot, TileCollection, TransferTile,
+        UnusedAnchor, WallAnchor,
     },
     tile::{MoveCurve, TILE_HEIGHT, TILE_WIDTH, render::TileMaterial, spawn_tile},
 };
@@ -118,15 +118,21 @@ fn init_level(
         TileCollection::default(),
     ));
 
+    // width of the discard layout in number of tiles
+    const DISCARD_LAYOUT_WIDTH: u8 = 6;
     // Spawn in 2 discards
     commands.spawn((
         Owner::Player,
-        DiscardAnchor(Vec2::new(-200.0, 0.0)),
+        DiscardAnchor(
+            Vec2::new(-200.0, 0.0),
+            DISCARD_LAYOUT_WIDTH,
+            PlayerSide::Down,
+        ),
         TileCollection::default(),
     ));
     commands.spawn((
         Owner::AI,
-        DiscardAnchor(Vec2::new(200.0, 0.0)),
+        DiscardAnchor(Vec2::new(200.0, 0.0), DISCARD_LAYOUT_WIDTH, PlayerSide::Up),
         TileCollection::default(),
     ));
 
