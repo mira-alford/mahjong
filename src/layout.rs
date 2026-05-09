@@ -117,3 +117,10 @@ fn layout_hand(
         }
     }
 }
+
+// todo:
+// - layoutdiscard function: similar to layout wall. Should check what tiles are currently in discard and all tiles and the relationship between tiles and collections
+// for each discard, for each tile belonging to that discard;
+//
+// starts at position of the loops discard anchor, separates right by a tile width each time,
+// wraps around when it reaches the edge
