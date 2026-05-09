@@ -31,7 +31,7 @@ pub fn event_plugin(app: &mut App) {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TileLocation {
     Discard(Owner),
-    Hand(Owner),
+    Hand(Owner, usize),
     Draw(Owner),
     Wall,
 }
@@ -45,7 +45,7 @@ pub struct DrawTileMsg(TileLocation);
 
 /// We are discarding some owner's tile from their hand
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Message)]
-pub struct DiscardTileMsg(Owner, TileKind);
+pub struct DiscardTileMsg(TileLocation, TileKind);
 
 /// We are playing the hand
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Message)]
@@ -95,7 +95,7 @@ fn tile_transfer_msg_handler(
                 .iter()
                 .find(|(_, anchor, owner)| match anchor {
                     Anchor::Hand(_) => {
-                        matches!(tile_location, TileLocation::Hand(o) if o == *owner)
+                        matches!(tile_location, TileLocation::Hand(o, _) if o == *owner)
                     }
                     Anchor::Wall(_) => matches!(tile_location, TileLocation::Wall),
                     Anchor::Discard(_) => {
