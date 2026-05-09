@@ -9,7 +9,7 @@ use rand::seq::{IndexedRandom, SliceRandom};
 use rand::{RngExt, SeedableRng};
 
 use crate::level::Owner;
-use crate::tile::{MoveCurve, MoveTile, TILE_HEIGHT, TILE_WIDTH};
+use crate::tile::{FlipTile, MoveCurve, MoveTile, TILE_HEIGHT, TILE_WIDTH};
 
 pub fn layout_plugin(app: &mut App) {
     app.add_systems(
@@ -23,7 +23,8 @@ pub fn layout_plugin(app: &mut App) {
         ),
     )
     .add_systems(FixedUpdate, transfer_tiles)
-    .add_message::<TransferTile>();
+    .add_message::<TransferTile>()
+    .add_message::<FlipTile>();
 }
 
 /// Vec2 denoting the position of where the hand should be rendered and a float length?
@@ -116,6 +117,7 @@ fn layout_discard(
     discard_anchors: Query<(Entity, &DiscardAnchor)>,
     tile_collections: Query<&TileCollection>,
     mut move_tiles_writer: MessageWriter<MoveTile>,
+    mut flip_tiles_writer: MessageWriter<FlipTile>,
 ) {
     // replace these with pixel width computed values
     const TEMPORARY_DEBUGGING_CARD_WIDTH: f32 = 130f32;
@@ -150,6 +152,11 @@ fn layout_discard(
             move_tiles_writer.write(MoveTile {
                 id: tile,
                 dest: new_pos,
+            });
+
+            flip_tiles_writer.write(FlipTile {
+                id: tile,
+                owner: player_kind,
             });
         }
     }
