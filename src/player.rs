@@ -33,9 +33,11 @@ fn default_deck() -> Deck {
 #[derive(Resource, Clone, Debug)]
 pub struct PlayerLoadout {
     // The deck the player starts with each round
-    full_deck: Deck,
-    base_hp: i32,
-    base_shield: i32,
+    pub full_deck: Deck,
+    pub base_hp: i32,
+    pub base_shield: i32,
+    /// Damage dealt when stealing a tile
+    pub call_damage: i32,
 }
 
 impl PlayerLoadout {
@@ -45,6 +47,19 @@ impl PlayerLoadout {
             full_deck: default_deck(),
             base_hp: 250,
             base_shield: 0,
+            call_damage: 30,
         }
     }
+}
+
+/// The state of an "actor" (i.e., player or enemy)
+#[derive(Component)]
+pub struct ActorState {
+    pub hp: i32,
+    pub shield: i32,
+    /// The actor's hand (13 tiles to start with)
+    pub hand: Vec<TileKind>,
+    /// Sets created by stealing
+    /// This is a vec of vecs since each set is distinct
+    pub sets: Vec<Vec<TileKind>>,
 }
