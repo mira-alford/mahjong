@@ -1,3 +1,5 @@
+/// enums for the different kind of tiles avalible, TileKind is the root
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TileKind {
     Suit(Suit),
