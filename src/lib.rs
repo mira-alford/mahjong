@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 
+pub mod events;
 pub mod layout;
 pub mod level;
 pub mod player;
@@ -31,6 +32,7 @@ impl Plugin for MahjongPlugin {
             .add_plugins(title_menu::title_menu_plugin)
             .add_plugins(player_select::player_select_plugin)
             .add_plugins(level::level_plugin)
+            .add_plugins(events::event_plugin)
             .add_plugins(layout::layout_plugin);
     }
 }

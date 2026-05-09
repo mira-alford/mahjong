@@ -52,7 +52,7 @@ enum Turn {
     AI,
 }
 
-#[derive(Component, Default, Clone, Copy, Debug)]
+#[derive(Component, Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Owner {
     #[default]
     Player,
