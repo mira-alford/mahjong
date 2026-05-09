@@ -5,6 +5,7 @@ use bevy::{picking::hover::Hovered, prelude::*};
 use std::time::Instant;
 
 use crate::layout::{LAYOUT_HAND_MOVE_A, LAYOUT_HAND_MOVE_B};
+use crate::level::Owner;
 
 use self::kind::{Suit, TileKind};
 use self::render::{TileMaterial, TileMaterialPlugin};
@@ -18,8 +19,9 @@ impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(TileMaterialPlugin {})
             .add_systems(Update, (lerp_tiles, update_tile_materials))
-            .add_systems(FixedPostUpdate, move_tile)
-            .add_message::<MoveTile>();
+            .add_systems(FixedPostUpdate, (move_tile, flip_tile))
+            .add_message::<MoveTile>()
+            .add_message::<FlipTile>();
     }
 }
 
@@ -27,6 +29,12 @@ impl Plugin for TilePlugin {
 pub struct MoveTile {
     pub id: Entity,
     pub dest: Vec2,
+}
+
+#[derive(Message)]
+pub struct FlipTile {
+    pub id: Entity,
+    pub owner: Owner,
 }
 
 #[derive(Component, Debug)]
@@ -84,7 +92,7 @@ pub fn spawn_tile(
             ShownFace::default(),
             Transform::default(),
             Tile {
-                data: TileKind::Suit(Suit::Characters(1)),
+                data: TileKind::Number(Suit::Characters, 1),
             },
             // TODO: this should probably be done with a resource specified when plugin made
             Mesh2d(mesh.clone()),
@@ -210,7 +218,7 @@ fn move_tile(
 
             // It is also relevant, if the new move curve is in the direction
             // of the old curve (roughly) then we keep the same time/velocity.
-            if (dest.dot(curve.end) > 0.8) {
+            if dest.dot(curve.end) > 0.8 {
                 time = curve.start_time;
             }
         }
@@ -224,5 +232,16 @@ fn move_tile(
             b: LAYOUT_HAND_MOVE_B,
         };
         commands.entity(id).insert(move_curve);
+    }
+}
+
+fn flip_tile(mut messages: MessageReader<FlipTile>, mut query: Query<&mut Transform>) {
+    for &FlipTile { id, owner } in messages.read() {
+        if let Ok(mut transform) = query.get_mut(id) {
+            *transform = transform.with_rotation(Quat::from_rotation_z(match owner {
+                Owner::AI => core::f32::consts::TAU / 2f32,
+                Owner::Player => 0f32,
+            }));
+        }
     }
 }

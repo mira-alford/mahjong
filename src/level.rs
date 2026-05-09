@@ -8,6 +8,7 @@ use crate::{
         DiscardAnchor, HandAnchor, OwnedTile, Slot, TileCollection, TransferTile, UnusedAnchor,
         WallAnchor,
     },
+    player::{ActorState, PlayerLoadout},
     tile::{MoveCurve, TILE_HEIGHT, TILE_WIDTH, render::TileMaterial, spawn_tile},
 };
 
@@ -78,6 +79,7 @@ fn init_level(
     mut materials: ResMut<Assets<TileMaterial>>,
     mut commands: Commands,
     mut next_state: ResMut<NextState<LevelState>>,
+    player_loadout: Res<PlayerLoadout>,
     asset_server: Res<AssetServer>,
 ) {
     let tile_mesh = meshes.add(Rectangle::from_size(Vec2::new(TILE_WIDTH, TILE_HEIGHT)));
@@ -107,12 +109,15 @@ fn init_level(
     // TODO: hand resizing system that uses window size
     commands.spawn((
         Owner::Player,
-        HandAnchor(Vec2::new(-TILE_WIDTH * 8.0, TILE_HEIGHT * 4.5)),
+        HandAnchor(
+            Vec2::new(-TILE_WIDTH * 8.0, -TILE_HEIGHT * 4.5),
+            Owner::Player,
+        ),
         TileCollection::default(),
     ));
     commands.spawn((
         Owner::AI,
-        HandAnchor(Vec2::new(-TILE_WIDTH * 8.0, -TILE_HEIGHT * 4.5)),
+        HandAnchor(Vec2::new(TILE_WIDTH * 8.0, TILE_HEIGHT * 4.5), Owner::AI),
         TileCollection::default(),
     ));
 
@@ -129,6 +134,10 @@ fn init_level(
         DiscardAnchor(Vec2::new(200.0, 0.0), DISCARD_LAYOUT_WIDTH, Owner::AI),
         TileCollection::default(),
     ));
+
+    // Spawn the player and enemy state
+    commands.spawn((Owner::Player, player_loadout.actor_state()));
+    commands.spawn((Owner::AI, ActorState::default_enemy()));
 
     // Go to wall building
     next_state.set(LevelState::BuildWall);
