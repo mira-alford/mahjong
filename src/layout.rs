@@ -1,6 +1,7 @@
 use std::ops::Neg;
 use std::time::Instant;
 
+use bevy::camera::Viewport;
 use bevy::prelude::*;
 use itertools::Itertools;
 use rand::distr::{Distribution, Uniform};
@@ -18,8 +19,8 @@ pub fn layout_plugin(app: &mut App) {
             layout_hand,
             layout_wall,
             layout_discard,
-            resize_wall,
-            resize_hand,
+            // resize_wall,
+            // resize_hand,
         ),
     )
     .add_systems(FixedUpdate, transfer_tiles)
@@ -28,12 +29,11 @@ pub fn layout_plugin(app: &mut App) {
 
 /// Vec2 denoting the position of where the hand should be rendered and a float length?
 #[derive(Component, Debug)]
-pub struct HandAnchor(pub Vec2, pub f32);
+pub struct HandAnchor(pub Vec2);
 
-/// Vec2 denoting the width/height of the walls rect (from the center).
 /// IVec2 denoting the number of tiles on the x and y
 #[derive(Component, Debug)]
-pub struct WallAnchor(pub Vec2, pub IVec2);
+pub struct WallAnchor(pub IVec2);
 
 /// Vec2 denoting the position of where the discord pile should be rendered
 /// DiscardAnchor.1 is the maximum width in tile count for discard layouting
@@ -92,7 +92,7 @@ fn layout_hand(
     all_tiles: Query<&Slot>,
     mut move_tiles_writer: MessageWriter<MoveTile>,
 ) {
-    for (hand_entity, &HandAnchor(anchor_pos, anchor_len)) in hand_anchors {
+    for (hand_entity, &HandAnchor(anchor_pos)) in hand_anchors {
         let tile_iter: Vec<_> = tile_collections.iter_descendants(hand_entity).collect();
 
         // collect all of the tiles that we own (filtering out non-tiles)
@@ -100,7 +100,11 @@ fn layout_hand(
             let Ok(curslot) = all_tiles.get(*tile) else {
                 continue; // if not owned, we skip
             };
-            let cur_offset = curslot.0 as f32 / 14.0 * anchor_len;
+
+            let mut cur_offset = curslot.0 as f32 * TILE_WIDTH;
+            if curslot.0 == 13 {
+                cur_offset += TILE_WIDTH;
+            }
 
             let new_tile_pos = anchor_pos + Vec2::X * cur_offset;
             move_tiles_writer.write(MoveTile {
@@ -163,6 +167,7 @@ fn layout_discard(
 fn layout_wall(
     wall_anchor: Query<(Entity, &WallAnchor)>,
     tile_collections: Query<&TileCollection>,
+    all_tiles: Query<&Slot>,
     mut move_tiles_writer: MessageWriter<MoveTile>,
 ) {
     let mut rng = StdRng::seed_from_u64(67); // -\_o_o_/^
@@ -170,15 +175,17 @@ fn layout_wall(
         return;
     };
 
-    let mut rows = (0..(wall_anchor.1.x * 2))
-        .map(|i| i as f32 * wall_anchor.0.x as f32 / wall_anchor.1.x as f32 - (wall_anchor.0.x))
-        .cartesian_product([-wall_anchor.0.y, wall_anchor.0.y].into_iter())
-        .map(|(x, y)| Vec2::new(x, y) / 2.0)
+    let dims = wall_anchor.0.as_vec2() * Vec2::new(TILE_WIDTH, TILE_HEIGHT);
+
+    let mut rows = (0..=(wall_anchor.0.x))
+        .map(|i| i as f32 * TILE_WIDTH)
+        .cartesian_product([0.0, dims.y].into_iter())
+        .map(|(x, y)| Vec2::new(x, y) - dims / 2.0)
         .collect_vec();
-    let mut cols = (0..(wall_anchor.1.y * 2))
-        .map(|i| i as f32 * wall_anchor.0.y as f32 / wall_anchor.1.y as f32 - (wall_anchor.0.y))
-        .cartesian_product([-wall_anchor.0.x, wall_anchor.0.x].into_iter())
-        .map(|(y, x)| Vec2::new(x, y) / 2.0)
+    let mut cols = (0..=(wall_anchor.0.y))
+        .map(|i| i as f32 * TILE_HEIGHT)
+        .cartesian_product([0.0, dims.x].into_iter())
+        .map(|(y, x)| Vec2::new(x, y) - dims / 2.0)
         .collect_vec();
 
     rows.append(&mut cols);
@@ -198,24 +205,26 @@ fn layout_wall(
     }
 }
 
-fn resize_wall(window: Single<&Window>, mut walls: Query<&mut WallAnchor>) {
-    let Ok(mut wall_anchor) = walls.single_mut() else {
-        return;
-    };
-    wall_anchor.0 = window.size() - Vec2::new(TILE_WIDTH * 2.5, TILE_HEIGHT * 4.5);
-}
+// fn camera_scaling(
+//     camera: Single<(&mut Camera2d, &mut Viewport)>,
+//     mut walls: Query<&mut WallAnchor>,
+// ) {
+//     let Ok(mut wall_anchor) = walls.single_mut() else {
+//         return;
+//     };
+// }
 
-fn resize_hand(window: Single<&Window>, mut hands: Query<(&mut HandAnchor, &Owner)>) {
-    for (mut hand_anchor, owner) in &mut hands {
-        match owner {
-            Owner::Player => {
-                hand_anchor.0 = window.size() * Vec2::new(-1.0, 1.0) / 2.0
-                    + Vec2::new(TILE_WIDTH * 4.5, TILE_HEIGHT * 7.5)
-            }
-            Owner::AI => {
-                hand_anchor.0 = window.size() * Vec2::new(1.0, -1.0) / 2.0
-                    + Vec2::new(TILE_WIDTH * 4.5, TILE_HEIGHT * 7.5)
-            }
-        }
-    }
-}
+// fn resize_hand(window: Single<&Window>, mut hands: Query<(&mut HandAnchor, &Owner)>) {
+//     for (mut hand_anchor, owner) in &mut hands {
+//         match owner {
+//             Owner::Player => {
+//                 hand_anchor.0 = window.size() * Vec2::new(-1.0, 1.0) / 2.0
+//                     + Vec2::new(TILE_WIDTH * 4.5, TILE_HEIGHT * 7.5)
+//             }
+//             Owner::AI => {
+//                 hand_anchor.0 = window.size() * Vec2::new(1.0, -1.0) / 2.0
+//                     + Vec2::new(TILE_WIDTH * 4.5, TILE_HEIGHT * 7.5)
+//             }
+//         }
+//     }
+// }
