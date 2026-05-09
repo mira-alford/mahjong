@@ -138,6 +138,7 @@ fn layout_discard(
         {
             let new_pos = anchorpos
                 + Vec2::new(
+                    // could div_euclid instead
                     (ix % (discard_layout_width as usize)) as f32 * width,
                     (ix / (discard_layout_width as usize)) as f32 * height,
                 );
