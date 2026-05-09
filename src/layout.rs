@@ -5,13 +5,15 @@ use std::ops::Neg;
 use crate::level::Owner;
 use crate::tile::{MoveTile, RotateTile, TILE_HEIGHT, TILE_WIDTH};
 
-pub trait Layout {}
+pub trait Layout {
+    fn layout(&self);
+}
 
-pub struct Hand;
-pub struct Wall;
-pub struct Discard;
+pub struct Hand(Vec2);
+pub struct Wall(IVec2);
+pub struct Discard(Vec2, u8);
 pub struct Unused;
-pub struct Draw;
+pub struct Draw(Vec2);
 
 #[derive(Component)]
 pub enum Anchor {
@@ -22,13 +24,18 @@ pub enum Anchor {
     Draw(Draw),
 }
 
-impl Layout for Hand {}
-impl Layout for Wall {}
-impl Layout for Discard {}
-impl Layout for Unused {}
-impl Layout for Draw {}
-
-impl Layout for Anchor {}
+impl Layout for Anchor {
+    fn layout(&self) {
+        match self {
+            // Anchor::Hand(hand) => layout_hand(hand),
+            // Anchor::Wall(wall) => layout_wall(wall),
+            // Anchor::Discard(discard) => layout_discard(discard),
+            // Anchor::Unused(unused) => layout_unused(unused),
+            // Anchor::Draw(draw) => layout_draw(draw),
+            _ => todo!(),
+        }
+    }
+}
 
 pub fn layout_plugin(app: &mut App) {
     app.add_systems(
