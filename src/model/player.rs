@@ -1,6 +1,9 @@
 //! Stuff to do with the player's loadout - their deck, their items, etc
 
-use crate::tile::kind::{Dragon, Honor, Suit, TileKind, Wind};
+use crate::{
+    events::TileLocation,
+    tile::kind::{Dragon, Honor, Suit, TileKind, Wind},
+};
 use bevy::prelude::*;
 
 type Deck = Vec<TileKind>;
@@ -57,6 +60,7 @@ impl PlayerLoadout {
             shield: self.base_shield,
             hand,
             sets: Vec::new(),
+            drawn_tile: None,
         }
     }
 }
@@ -71,6 +75,8 @@ pub struct ActorState {
     /// Sets created by stealing
     /// This is a vec of vecs since each set is distinct
     pub sets: Vec<Vec<TileKind>>,
+    /// The tile that has just been drawn from the wall (if any)
+    pub drawn_tile: Option<TileKind>,
 }
 
 impl ActorState {
@@ -80,6 +86,19 @@ impl ActorState {
             shield: 0,
             hand,
             sets: Vec::new(),
+            drawn_tile: None,
         }
+    }
+
+    pub fn draw_tile(&mut self, tile: TileKind) {
+        assert!(self.drawn_tile.is_none());
+        self.drawn_tile = Some(tile);
+    }
+
+    /// Discards a tile from the hand, or from the drawn tile (if it exists).
+    ///
+    /// The location should not be Drawn if there is no drawn tile.
+    pub fn discard_tile(&self, location: TileLocation) {
+        todo!()
     }
 }
