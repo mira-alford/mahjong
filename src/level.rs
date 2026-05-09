@@ -7,7 +7,7 @@ use crate::{
         DiscardAnchor, HandAnchor, OwnedTile, Slot, TileCollection, TransferTile, UnusedAnchor,
         WallAnchor,
     },
-    tile::{render::TileMaterial, spawn_tile},
+    tile::{MoveCurve, render::TileMaterial, spawn_tile},
 };
 
 #[derive(Resource)]
@@ -88,7 +88,7 @@ fn init_level(
 
     // Just hard spawning 32 unused tiles for now :)
     // TODO: Eventually replace this
-    for _ in 0..32 {
+    for _ in 0..136 {
         let tile_id = spawn_tile(
             &mut commands,
             &tile_mesh,
@@ -101,7 +101,7 @@ fn init_level(
     // Spawn in the wall!
     // TODO: wall resizing system that uses window size
     commands.spawn((
-        WallAnchor(Vec2::ONE * 800.0, IVec2::ONE * 13),
+        WallAnchor(Vec2::new(1000.0, 1200.0), IVec2::ONE * 13),
         TileCollection::default(),
     ));
 
@@ -142,6 +142,7 @@ fn build_wall(
     sources: Query<Entity, Or<(With<UnusedAnchor>, With<DiscardAnchor>)>>,
     sinks: Query<Entity, With<WallAnchor>>,
     tile_collections: Query<&TileCollection>,
+    curves: Query<&MoveCurve>,
     mut messages: MessageWriter<TransferTile>,
 ) {
     timer.0.tick(time.delta());
@@ -167,13 +168,9 @@ fn build_wall(
         }
     }
 
-    // let pieces_stabilised = false;
-    // if !pieces_stabilised {
-    //     stabilised = false;
-    // }
-
+    let len = curves.iter().len();
     // No more pieces? then transition state to dealing.
-    if stabilised {
+    if len == 0 && stabilised {
         next_state.set(LevelState::Deal);
     }
 }

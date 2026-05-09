@@ -4,6 +4,8 @@ pub mod render;
 use bevy::{picking::hover::Hovered, prelude::*};
 use std::time::Instant;
 
+use crate::layout::{LAYOUT_HAND_MOVE_A, LAYOUT_HAND_MOVE_B};
+
 use self::kind::{Suit, TileKind};
 use self::render::{TileMaterial, TileMaterialPlugin};
 
@@ -12,8 +14,16 @@ pub struct TilePlugin;
 impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(TileMaterialPlugin {})
-            .add_systems(Update, (lerp_tiles, update_tile_materials));
+            .add_systems(Update, (lerp_tiles, update_tile_materials))
+            .add_systems(FixedPostUpdate, move_tile)
+            .add_message::<MoveTile>();
     }
+}
+
+#[derive(Message)]
+pub struct MoveTile {
+    pub id: Entity,
+    pub dest: Vec2,
 }
 
 #[derive(Component, Debug)]
@@ -164,5 +174,45 @@ fn lerp_tiles(mut commands: Commands, mut tiles: Query<(Entity, &MoveCurve, &mut
         if 1.0 - move_scalar < 1e-5 {
             commands.entity(entity).remove::<MoveCurve>();
         }
+    }
+}
+
+fn move_tile(
+    mut messages: MessageReader<MoveTile>,
+    mut commands: Commands,
+    query: Query<(&Transform, Option<&MoveCurve>)>,
+) {
+    for &MoveTile { id, dest } in messages.read() {
+        let Ok((transform, curve)) = query.get(id) else {
+            continue;
+        };
+
+        let existing_tile_pos = transform.translation.xy();
+        let pos_delta = (existing_tile_pos - dest).length();
+
+        // if position change is super small, don't bother moving
+        if pos_delta < 1e-4 {
+            continue;
+        }
+
+        if let Some(curve) = curve {
+            let existing_tile_pos = curve.end;
+            let pos_delta = (existing_tile_pos - dest).length();
+
+            // if position change is super small, don't bother moving
+            if pos_delta < 1e-4 {
+                continue;
+            }
+        }
+
+        // Otherwise, add a move curve
+        let move_curve = MoveCurve {
+            start: existing_tile_pos,
+            end: dest,
+            start_time: Instant::now(),
+            a: LAYOUT_HAND_MOVE_A,
+            b: LAYOUT_HAND_MOVE_B,
+        };
+        commands.entity(id).insert(move_curve);
     }
 }
