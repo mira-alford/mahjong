@@ -11,9 +11,9 @@ fn default_deck() -> Deck {
 
     for _ in 0..4 {
         for num in 1..=9 {
-            res.push(TileKind::Suit(Suit::Characters(num)));
-            res.push(TileKind::Suit(Suit::Bamboo(num)));
-            res.push(TileKind::Suit(Suit::Circle(num)));
+            res.push(TileKind::Number(Suit::Characters, num));
+            res.push(TileKind::Number(Suit::Bamboo, num));
+            res.push(TileKind::Number(Suit::Circle, num));
         }
 
         for dir in [Wind::East, Wind::South, Wind::West, Wind::North] {
