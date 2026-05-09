@@ -50,7 +50,7 @@ fn fragment(
         let overlay_color = textureSample(overlay_texture, texture_sampler, mesh.uv);
         color = mix(base_color, overlay_color, overlay_color.a);
     } else {
-        let base_color = textureSample(front_texture, texture_sampler, mesh.uv);
+        color = textureSample(back_texture, texture_sampler, mesh.uv);
     }
 
     // return vec4<f32>(color, base_color.a);
