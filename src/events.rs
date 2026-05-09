@@ -5,14 +5,23 @@ use bevy::prelude::*;
 use crate::{level::Owner, tile::kind::TileKind};
 
 pub fn event_plugin(app: &mut App) {
-    app
-        // ui -> model
-        .add_message::<DrawTileMsg>()
-        .add_message::<DiscardTileMsg>()
-        .add_message::<PlayTilesMsg>()
-        // model -> ui
-        .add_message::<TileTransferMsg>()
-        .add_message::<HealthUpdateMsg>();
+    app.add_systems(
+        FixedUpdate,
+        (
+            draw_tile_msg_handler,
+            discard_tile_msg_handler,
+            play_tiles_msg_handler,
+            tile_transfer_msg_handler,
+            health_update_msg_handler,
+        ),
+    )
+    // ui -> model
+    .add_message::<DrawTileMsg>()
+    .add_message::<DiscardTileMsg>()
+    .add_message::<PlayTilesMsg>()
+    // model -> ui
+    .add_message::<TileTransferMsg>()
+    .add_message::<HealthUpdateMsg>();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,4 +61,16 @@ pub struct TileTransferMsg {
 pub struct HealthUpdateMsg {
     owner: Owner,
     health: u32,
+}
+
+fn draw_tile_msg_handler(mut messages: MessageReader<DrawTileMsg>, mut commands: Commands) {}
+
+fn discard_tile_msg_handler(mut messages: MessageReader<DiscardTileMsg>, mut commands: Commands) {}
+
+fn play_tiles_msg_handler(mut messages: MessageReader<PlayTilesMsg>, mut commands: Commands) {}
+
+fn tile_transfer_msg_handler(mut messages: MessageReader<TileTransferMsg>, mut commands: Commands) {
+}
+
+fn health_update_msg_handler(mut messages: MessageReader<HealthUpdateMsg>, mut commands: Commands) {
 }
