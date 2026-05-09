@@ -5,6 +5,7 @@ use std::{collections::HashSet, fmt, time::Duration};
 
 use crate::{
     GameState,
+    events::{TileLocation, TileTransferMsg},
     layout::{Anchor, Discard, Hand, OwnedTile, Slot, TileCollection, TransferTile, Unused, Wall},
     model::{
         game::GameModel,
@@ -83,21 +84,18 @@ fn init_level(
     player_loadout: Res<PlayerLoadout>,
     asset_server: Res<AssetServer>,
     shared_tile_data: Res<SharedTileData>,
+    mut transfer_tile: MessageWriter<TileTransferMsg>,
 ) {
     // Init the model to a good state
     let mut deck = player_loadout.full_deck.clone();
     let mut rng = rand::rng();
     deck.shuffle(&mut rng);
-    let mut player_hand = deck.split_off(deck.len() - 13);
-    player_hand.sort();
-    let mut enemy_hand = deck.split_off(deck.len() - 13);
-    enemy_hand.sort();
 
     game_model.wall = deck;
 
     // Spawn the player and enemy state
-    commands.spawn((Owner::Player, player_loadout.actor_state(player_hand)));
-    commands.spawn((Owner::AI, ActorState::default_enemy(enemy_hand)));
+    commands.spawn((Owner::Player, player_loadout.actor_state(vec![])));
+    commands.spawn((Owner::AI, ActorState::default_enemy(vec![])));
 
     let tile_mesh = meshes.add(Rectangle::from_size(Vec2::new(TILE_WIDTH, TILE_HEIGHT)));
 
@@ -108,13 +106,13 @@ fn init_level(
 
     // Just hard spawning 32 unused tiles for now :)
     // TODO: Eventually replace this
-    for _ in 0..136 {
+    for tile in player_loadout.full_deck.clone() {
         let tile_id = commands
             .spawn(TileBundle::new(
                 &mut materials,
                 asset_server.clone(),
                 shared_tile_data.clone(),
-                TileKind::Number(crate::tile::kind::Suit::Characters, 1),
+                tile,
             ))
             .insert(ShownFace(crate::tile::TileFace::Bottom))
             .observe(tile_click_oberver)
@@ -290,10 +288,13 @@ fn deal_tiles(
     sinks: Query<(Entity, &Anchor)>,
     tile_collections: Query<&TileCollection>,
     tile_query: Query<&Slot>,
-    mut messages: MessageWriter<TransferTile>,
+    mut messages: MessageWriter<TileTransferMsg>,
     mut commands: Commands,
     mut counter: Local<usize>,
+    mut model: ResMut<GameModel>,
+    mut oneshot: Local<bool>,
 ) {
+    /*
     timer.0.tick(time.delta());
     if !timer.0.just_finished() {
         return;
@@ -369,4 +370,33 @@ fn deal_tiles(
     // Otherwise, we maintain this state.
     // Play a tile into any hand of size < 14.
     // ...
+
+    */
+
+    if !*oneshot {
+        *oneshot = true;
+        let beans = model.wall.len() - 13;
+        let mut player_hand = model.wall.split_off(beans);
+
+        for i in 0..13 {
+            messages.write(TileTransferMsg {
+                start: TileLocation::Wall,
+                end: TileLocation::Hand(Owner::Player, i),
+                tile: player_hand[i],
+            });
+        }
+
+        player_hand.sort();
+        dbg!(&player_hand);
+        let beans = model.wall.len() - 13;
+        let mut enemy_hand = model.wall.split_off(beans);
+        for i in 0..13 {
+            messages.write(TileTransferMsg {
+                start: TileLocation::Wall,
+                end: TileLocation::Hand(Owner::Player, i),
+                tile: player_hand[i],
+            });
+        }
+        enemy_hand.sort();
+    }
 }

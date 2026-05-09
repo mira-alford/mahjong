@@ -57,9 +57,9 @@ pub struct PlayTilesMsg(Owner);
 /// Model telling the view that a tile is being transferred
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Message)]
 pub struct TileTransferMsg {
-    start: TileLocation,
-    end: TileLocation,
-    tile: TileKind,
+    pub start: TileLocation,
+    pub end: TileLocation,
+    pub tile: TileKind,
 }
 
 /// Model telling the view that a player's health is being updated
