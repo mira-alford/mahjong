@@ -86,7 +86,16 @@ fn layout_all_the_things(
                 &mut flip_tiles_writer,
             ),
             Anchor::Unused(_) => {}
-            Anchor::Draw(_) => {}
+            Anchor::Draw(draw) => layout_draw(
+                *draw,
+                *owner_opt.expect("expects owner"),
+                tiles
+                    .iter()
+                    .map(|e| (*e, tiles_query.get(*e).expect("be civil")))
+                    .collect(),
+                &mut move_tiles_writer,
+                &mut flip_tiles_writer,
+            ),
         };
     }
 }
@@ -114,6 +123,42 @@ fn layout_hand(
         let new_tile_pos = match owner {
             Owner::AI => hand.pos - Vec2::X * cur_offset,
             Owner::Player => hand.pos + Vec2::X * cur_offset,
+        };
+
+        move_tiles_writer.write(MoveTile {
+            id: *tile_entity,
+            dest: new_tile_pos,
+        });
+
+        flip_tiles_writer.write(RotateTile {
+            id: *tile_entity,
+            owner,
+        });
+    }
+}
+
+fn layout_draw(
+    draw: Draw,
+    owner: Owner,
+    tiles: Vec<(Entity, &Tile)>,
+    move_tiles_writer: &mut MessageWriter<MoveTile>,
+    flip_tiles_writer: &mut MessageWriter<RotateTile>,
+) {
+    // collect all of the tiles that we own (filtering out non-tiles)
+    for (i, (tile_entity, tile)) in tiles
+        .iter()
+        .sorted_by_key(|(tile_entity, tile)| tile.kind)
+        .enumerate()
+    {
+        let mut cur_offset = i as f32 * TILE_WIDTH;
+        if i == 13 {
+            cur_offset += TILE_WIDTH;
+        }
+        cur_offset *= 0.0;
+
+        let new_tile_pos = match owner {
+            Owner::AI => draw.0 - Vec2::X * cur_offset,
+            Owner::Player => draw.0 + Vec2::X * cur_offset,
         };
 
         move_tiles_writer.write(MoveTile {

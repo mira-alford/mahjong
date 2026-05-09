@@ -191,6 +191,23 @@ fn init_level(
         TileCollection::default(),
     ));
 
+    commands.spawn((
+        Owner::Player,
+        Anchor::Draw(crate::layout::Draw(Vec2::new(
+            TILE_WIDTH * 10.0,
+            -TILE_HEIGHT * 4.5,
+        ))),
+        TileCollection::default(),
+    ));
+    commands.spawn((
+        Owner::AI,
+        Anchor::Draw(crate::layout::Draw(Vec2::new(
+            -TILE_WIDTH * 10.0,
+            -TILE_HEIGHT * 4.5,
+        ))),
+        TileCollection::default(),
+    ));
+
     // width of the discard layout in number of tiles
     const DISCARD_LAYOUT_WIDTH: u8 = 6;
     // Spawn in 2 discards

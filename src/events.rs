@@ -70,7 +70,11 @@ pub struct HealthUpdateMsg {
     max_health: u32,
 }
 
-fn draw_tile_msg_handler(mut messages: MessageReader<DrawTileMsg>, mut commands: Commands) {}
+fn draw_tile_msg_handler(mut messages: MessageReader<DrawTileMsg>, mut commands: Commands) {
+    for message in messages.read() {
+        dbg!(message);
+    }
+}
 
 fn discard_tile_msg_handler(mut messages: MessageReader<DiscardTileMsg>, mut commands: Commands) {}
 
