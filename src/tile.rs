@@ -140,14 +140,6 @@ impl TileBundle {
     }
 }
 
-/// material for a tiles face
-#[derive(Component)]
-struct TileFaceMaterial(Handle<TileMaterial>);
-
-/// material for tiles face
-#[derive(Component)]
-struct TileBackMaterial(Handle<TileMaterial>);
-
 /// the currently up facing face of a tile, i.e. the face you can see
 #[derive(Component, Default)]
 struct ShownFace(TileFace);
