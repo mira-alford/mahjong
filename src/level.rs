@@ -1,13 +1,19 @@
 use bevy::prelude::*;
-use std::time::Duration;
+use itertools::Itertools;
+use std::{collections::HashSet, time::Duration};
 
 use crate::{
     GameState,
     layout::{
-        DiscardAnchor, HandAnchor, OwnedTile, TileCollection, TransferTile, UnusedAnchor,
+        DiscardAnchor, HandAnchor, OwnedTile, Slot, TileCollection, TransferTile, UnusedAnchor,
         WallAnchor,
     },
-    tile::{render::TileMaterial, spawn_tile},
+    player::{ActorState, PlayerLoadout},
+    tile::{
+        MoveCurve, SharedTileData, TILE_HEIGHT, TILE_WIDTH, TileBundle,
+        kind::{Dragon, Honor, TileKind},
+        render::TileMaterial,
+    },
 };
 
 #[derive(Resource)]
@@ -39,15 +45,15 @@ enum LevelState {
     Play,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone, Copy, Debug)]
 enum Turn {
     #[default]
     Player,
     AI,
 }
 
-#[derive(Component, Default)]
-enum Owner {
+#[derive(Component, Default, Clone, Copy, Debug)]
+pub enum Owner {
     #[default]
     Player,
     AI,
@@ -56,7 +62,7 @@ enum Owner {
 pub fn level_plugin(app: &mut App) {
     app.init_resource::<Turn>()
         .insert_resource(TransitionTimer(Timer::new(
-            Duration::from_millis(100),
+            Duration::from_millis(1),
             TimerMode::Repeating,
         )))
         .add_sub_state::<LevelState>()
@@ -77,10 +83,10 @@ fn init_level(
     mut materials: ResMut<Assets<TileMaterial>>,
     mut commands: Commands,
     mut next_state: ResMut<NextState<LevelState>>,
+    player_loadout: Res<PlayerLoadout>,
     asset_server: Res<AssetServer>,
+    shared_tile_data: Res<SharedTileData>,
 ) {
-    let tile_mesh = meshes.add(Rectangle::from_size(Vec2::new(1.0, 4.0 / 3.0)));
-
     // Spawn in the unused pile.
     let unused_id = commands
         .spawn((UnusedAnchor(Vec2::ZERO), TileCollection::default()))
@@ -88,44 +94,55 @@ fn init_level(
 
     // Just hard spawning 32 unused tiles for now :)
     // TODO: Eventually replace this
-    for _ in 0..32 {
-        let tile_id = spawn_tile(
-            &mut commands,
-            &tile_mesh,
-            &mut materials,
-            asset_server.clone(),
-        );
+    for _ in 0..136 {
+        let tile_id = commands
+            .spawn(TileBundle::new(
+                &mut materials,
+                asset_server.clone(),
+                shared_tile_data.clone(),
+                TileKind::Blank,
+            ))
+            .id();
         commands.entity(tile_id).insert(OwnedTile(unused_id));
     }
 
     // Spawn in the wall!
     // TODO: wall resizing system that uses window size
-    commands.spawn((WallAnchor(Vec2::ONE * 800.0), TileCollection::default()));
+    commands.spawn((WallAnchor(IVec2::new(14, 6)), TileCollection::default()));
 
     // Spawn in 2 hands:
     // TODO: hand resizing system that uses window size
     commands.spawn((
         Owner::Player,
-        HandAnchor(Vec2::new(-500.0, -300.0), 1000.0),
+        HandAnchor(
+            Vec2::new(-TILE_WIDTH * 8.0, -TILE_HEIGHT * 4.5),
+            Owner::Player,
+        ),
         TileCollection::default(),
     ));
     commands.spawn((
         Owner::AI,
-        HandAnchor(Vec2::new(-500.0, 300.0), 1000.0),
+        HandAnchor(Vec2::new(TILE_WIDTH * 8.0, TILE_HEIGHT * 4.5), Owner::AI),
         TileCollection::default(),
     ));
 
+    // width of the discard layout in number of tiles
+    const DISCARD_LAYOUT_WIDTH: u8 = 6;
     // Spawn in 2 discards
     commands.spawn((
         Owner::Player,
-        DiscardAnchor(Vec2::new(-200.0, 0.0)),
+        DiscardAnchor(Vec2::new(-200.0, 0.0), DISCARD_LAYOUT_WIDTH, Owner::Player),
         TileCollection::default(),
     ));
     commands.spawn((
         Owner::AI,
-        DiscardAnchor(Vec2::new(200.0, 0.0)),
+        DiscardAnchor(Vec2::new(200.0, 0.0), DISCARD_LAYOUT_WIDTH, Owner::AI),
         TileCollection::default(),
     ));
+
+    // Spawn the player and enemy state
+    commands.spawn((Owner::Player, player_loadout.actor_state()));
+    commands.spawn((Owner::AI, ActorState::default_enemy()));
 
     // Go to wall building
     next_state.set(LevelState::BuildWall);
@@ -139,7 +156,10 @@ fn build_wall(
     sources: Query<Entity, Or<(With<UnusedAnchor>, With<DiscardAnchor>)>>,
     sinks: Query<Entity, With<WallAnchor>>,
     tile_collections: Query<&TileCollection>,
+    tile_query: Query<&Slot>,
+    curves: Query<&MoveCurve>,
     mut messages: MessageWriter<TransferTile>,
+    mut commands: Commands,
 ) {
     timer.0.tick(time.delta());
     if !timer.0.just_finished() {
@@ -149,6 +169,19 @@ fn build_wall(
     let mut stabilised = true;
 
     for sink in sinks {
+        let mut set: HashSet<u8> = (0..136).into_iter().collect();
+        for tile in tile_collections.iter_descendants(sink) {
+            let Ok(slot) = tile_query.get(tile) else {
+                continue;
+            };
+            set.remove(&slot.0);
+        }
+        if set.len() == 0 {
+            set = (0..136).into_iter().collect();
+        }
+
+        let mut set = set.iter().collect_vec();
+
         // Are there any pieces in the unused or either discard?
         // if yes, transfer a single one (first from unused) to the wall.
         'outer: for source in sources {
@@ -158,19 +191,19 @@ fn build_wall(
                     src: source,
                     dest: sink,
                 });
+                let Some(slot) = set.pop() else {
+                    continue;
+                };
+                commands.entity(tile_entity).insert(Slot(*slot));
                 stabilised = false;
                 break 'outer;
             }
         }
     }
 
-    // let pieces_stabilised = false;
-    // if !pieces_stabilised {
-    //     stabilised = false;
-    // }
-
+    let len = curves.iter().len();
     // No more pieces? then transition state to dealing.
-    if stabilised {
+    if len == 0 && stabilised {
         next_state.set(LevelState::Deal);
     }
 }
@@ -180,10 +213,12 @@ fn deal_tiles(
     mut timer: ResMut<TransitionTimer>,
     time: Res<Time>,
     mut next_state: ResMut<NextState<LevelState>>,
-    sources: Query<Entity, With<WallAnchor>>,
+    sources: Query<(Entity, &WallAnchor)>,
     sinks: Query<Entity, With<HandAnchor>>,
     tile_collections: Query<&TileCollection>,
+    tile_query: Query<&Slot>,
     mut messages: MessageWriter<TransferTile>,
+    mut commands: Commands,
     mut counter: Local<usize>,
 ) {
     timer.0.tick(time.delta());
@@ -197,13 +232,39 @@ fn deal_tiles(
     // *counter %= sinks.len();
     // let sink = sinks[*counter];
 
-    for source in sources {
-        for tile_entity in tile_collections.iter_descendants(source) {
+    for (source, wall_anchor) in sources {
+        for tile_entity in tile_collections
+            .iter_descendants(source)
+            .sorted_by_key(|e| match tile_query.get(*e) {
+                Ok(slot) => slot.0,
+                Err(_) => 0,
+            })
+        {
             for sink in sinks {
+                // the sink is a hand, and the descendants of sink are Tiles
                 let descendants: Vec<_> = tile_collections.iter_descendants(sink).collect();
-                if descendants.len() > 14 {
+
+                if descendants.len() >= 14 {
                     continue;
                 }
+
+                let mut set: HashSet<u8> = (0..14).into_iter().collect();
+                for descendant in descendants {
+                    // if the descendant (Tile in a hand?) already has a slot, add that slot number
+                    // to a set of currently filled slots.
+                    //
+                    // Then once this loop is done, iterate over the set and allocate all of the
+                    // missing slots between 0 and 13 to a descendant (tile in hand)
+                    let Ok(Slot(x)) = tile_query.get(descendant) else {
+                        continue;
+                    };
+                    set.remove(x);
+                }
+
+                commands
+                    .entity(tile_entity)
+                    .insert(Slot(set.into_iter().next().unwrap()));
+
                 messages.write(TransferTile {
                     tile: tile_entity,
                     src: source,

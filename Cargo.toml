@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.18.1", features = ["debug", "dynamic_linking", "file_watcher"] }
+bevy = { version = "0.18.1", features = ["debug", "dynamic_linking"] }
+itertools = "0.14.0"
+rand = "0.10.1"
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

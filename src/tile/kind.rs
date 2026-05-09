@@ -1,17 +1,19 @@
 /// enums for the different kind of tiles avalible, TileKind is the root
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum TileKind {
-    Suit(Suit),
+    Number(Suit, u8),
     Honor(Honor),
+    #[default]
+    Blank,
 }
 
 /// suits each with associated number between 1 and 9
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Suit {
-    Characters(u8),
-    Circle(u8),
-    Bamboo(u8),
+    Characters,
+    Circle,
+    Bamboo,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]

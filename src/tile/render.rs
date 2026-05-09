@@ -1,7 +1,7 @@
 use bevy::{
     prelude::*,
     render::render_resource::AsBindGroup,
-    sprite_render::{Material2d, Material2dPlugin},
+    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
 };
 
 const SHADER_PATH: &str = "shaders/tile_shader.wgsl";
@@ -18,21 +18,28 @@ impl Plugin for TileMaterialPlugin {
 /// the methods on [`TileMaterial`] to control it
 #[derive(Asset, AsBindGroup, Debug, Clone, TypePath)]
 pub struct TileMaterial {
-    #[texture(0)]
-    #[sampler(1)]
-    texture: Handle<Image>,
-    #[uniform(2)]
+    #[sampler(0)]
+    #[texture(1)]
+    front_texture: Handle<Image>,
+    #[texture(2)]
+    back_texture: Handle<Image>,
+    #[texture(3)]
+    overlay_texture: Option<Handle<Image>>,
+    #[uniform(4)]
     tint: LinearRgba,
 }
 
 impl TileMaterial {
-    /// Create a new tile material with the given texture as the front face
-    ///
-    /// See the bevy docs on asset loading to see how to get an image handle
-    pub fn new(texture: Handle<Image>) -> Self {
+    pub fn new(
+        front_texture: Handle<Image>,
+        back_texture: Handle<Image>,
+        overlay_texture: Option<Handle<Image>>,
+    ) -> Self {
         Self {
-            texture,
             tint: Color::WHITE.into(),
+            front_texture,
+            back_texture,
+            overlay_texture,
         }
     }
 
