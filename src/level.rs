@@ -9,7 +9,11 @@ use crate::{
         WallAnchor,
     },
     player::{ActorState, PlayerLoadout},
-    tile::{MoveCurve, TILE_HEIGHT, TILE_WIDTH, render::TileMaterial, spawn_tile},
+    tile::{
+        MoveCurve, SharedTileData, TILE_HEIGHT, TILE_WIDTH, TileBundle,
+        kind::{Dragon, Honor, TileKind},
+        render::TileMaterial,
+    },
 };
 
 #[derive(Resource)]
@@ -81,9 +85,8 @@ fn init_level(
     mut next_state: ResMut<NextState<LevelState>>,
     player_loadout: Res<PlayerLoadout>,
     asset_server: Res<AssetServer>,
+    shared_tile_data: Res<SharedTileData>,
 ) {
-    let tile_mesh = meshes.add(Rectangle::from_size(Vec2::new(TILE_WIDTH, TILE_HEIGHT)));
-
     // Spawn in the unused pile.
     let unused_id = commands
         .spawn((UnusedAnchor(Vec2::ZERO), TileCollection::default()))
@@ -92,12 +95,14 @@ fn init_level(
     // Just hard spawning 32 unused tiles for now :)
     // TODO: Eventually replace this
     for _ in 0..136 {
-        let tile_id = spawn_tile(
-            &mut commands,
-            &tile_mesh,
-            &mut materials,
-            asset_server.clone(),
-        );
+        let tile_id = commands
+            .spawn(TileBundle::new(
+                &mut materials,
+                asset_server.clone(),
+                shared_tile_data.clone(),
+                TileKind::Blank,
+            ))
+            .id();
         commands.entity(tile_id).insert(OwnedTile(unused_id));
     }
 
@@ -208,10 +213,10 @@ fn deal_tiles(
     mut timer: ResMut<TransitionTimer>,
     time: Res<Time>,
     mut next_state: ResMut<NextState<LevelState>>,
-    sources: Query<Entity, With<WallAnchor>>,
+    sources: Query<(Entity, &WallAnchor)>,
     sinks: Query<Entity, With<HandAnchor>>,
     tile_collections: Query<&TileCollection>,
-    tile_query: Query<(Entity, Option<&Slot>)>,
+    tile_query: Query<&Slot>,
     mut messages: MessageWriter<TransferTile>,
     mut commands: Commands,
     mut counter: Local<usize>,
@@ -227,8 +232,14 @@ fn deal_tiles(
     // *counter %= sinks.len();
     // let sink = sinks[*counter];
 
-    for source in sources {
-        for tile_entity in tile_collections.iter_descendants(source) {
+    for (source, wall_anchor) in sources {
+        for tile_entity in tile_collections
+            .iter_descendants(source)
+            .sorted_by_key(|e| match tile_query.get(*e) {
+                Ok(slot) => slot.0,
+                Err(_) => 0,
+            })
+        {
             for sink in sinks {
                 // the sink is a hand, and the descendants of sink are Tiles
                 let descendants: Vec<_> = tile_collections.iter_descendants(sink).collect();
@@ -244,9 +255,10 @@ fn deal_tiles(
                     //
                     // Then once this loop is done, iterate over the set and allocate all of the
                     // missing slots between 0 and 13 to a descendant (tile in hand)
-                    if let Ok((_, Some(Slot(x)))) = tile_query.get(descendant) {
-                        set.remove(x);
-                    }
+                    let Ok(Slot(x)) = tile_query.get(descendant) else {
+                        continue;
+                    };
+                    set.remove(x);
                 }
 
                 commands
