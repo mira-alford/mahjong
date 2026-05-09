@@ -1,6 +1,7 @@
 pub mod kind;
 pub mod render;
 
+use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use itertools::Itertools;
 use std::time::Instant;
@@ -55,6 +56,7 @@ pub struct TileBundle {
     material: MeshMaterial2d<TileMaterial>,
     shown_face: ShownFace,
     transform: Transform,
+    hovered: Hovered,
 }
 
 /// contains data shared between tiles, like their base front image, back image
@@ -140,16 +142,17 @@ impl TileBundle {
             material: material,
             shown_face: ShownFace::default(),
             transform: Transform::default(),
+            hovered: Hovered::default(),
         }
     }
 }
 
 /// the currently up facing face of a tile, i.e. the face you can see
 #[derive(Component, Default)]
-pub struct ShownFace(TileFace);
+pub struct ShownFace(pub TileFace);
 
 #[derive(Default)]
-enum TileFace {
+pub enum TileFace {
     #[default]
     Top,
     Bottom,
