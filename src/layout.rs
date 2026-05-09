@@ -38,13 +38,7 @@ pub struct WallAnchor(pub IVec2);
 /// Vec2 denoting the position of where the discord pile should be rendered
 /// DiscardAnchor.1 is the maximum width in tile count for discard layouting
 #[derive(Component, Debug)]
-pub struct DiscardAnchor(pub Vec2, pub u8, pub PlayerSide);
-
-#[derive(Debug, Clone, Copy)]
-pub enum PlayerSide {
-    Up,
-    Down,
-}
+pub struct DiscardAnchor(pub Vec2, pub u8, pub Owner);
 
 /// All the tiles atop eachother in a glorious heap.
 #[derive(Component, Debug)]
@@ -131,16 +125,16 @@ fn layout_discard(
     const TEMPORARY_DEBUGGING_CARD_WIDTH: f32 = 130f32;
     const TEMPORARY_DEBUGGING_CARD_HEIGHT: f32 = 180f32;
 
-    for (discard_entity, &DiscardAnchor(anchorpos, discard_layout_width, player_side)) in
+    for (discard_entity, &DiscardAnchor(anchorpos, discard_layout_width, player_kind)) in
         discard_anchors
     {
-        let (width, height) = match player_side {
+        let (width, height) = match player_kind {
             // todo flip the ai's (playerside up) cards upside down (requires transform stuff)
-            PlayerSide::Down => (
+            Owner::Player => (
                 TEMPORARY_DEBUGGING_CARD_WIDTH,
                 TEMPORARY_DEBUGGING_CARD_HEIGHT.neg(),
             ),
-            PlayerSide::Up => (
+            Owner::AI => (
                 TEMPORARY_DEBUGGING_CARD_WIDTH.neg(),
                 TEMPORARY_DEBUGGING_CARD_HEIGHT,
             ),
@@ -152,6 +146,7 @@ fn layout_discard(
         {
             let new_pos = anchorpos
                 + Vec2::new(
+                    // could div_euclid instead
                     (ix % (discard_layout_width as usize)) as f32 * width,
                     (ix / (discard_layout_width as usize)) as f32 * height,
                 );
