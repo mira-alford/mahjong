@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use itertools::Itertools;
 use std::{collections::HashSet, time::Duration};
 
 use crate::{
@@ -100,21 +101,18 @@ fn init_level(
 
     // Spawn in the wall!
     // TODO: wall resizing system that uses window size
-    commands.spawn((
-        WallAnchor(Vec2::new(1000.0, 1200.0), IVec2::ONE * 13),
-        TileCollection::default(),
-    ));
+    commands.spawn((WallAnchor(IVec2::new(14, 6)), TileCollection::default()));
 
     // Spawn in 2 hands:
     // TODO: hand resizing system that uses window size
     commands.spawn((
         Owner::Player,
-        HandAnchor(Vec2::new(-500.0, -300.0), 1000.0),
+        HandAnchor(Vec2::new(-TILE_WIDTH * 8.0, TILE_HEIGHT * 4.5)),
         TileCollection::default(),
     ));
     commands.spawn((
         Owner::AI,
-        HandAnchor(Vec2::new(-500.0, 300.0), 1000.0),
+        HandAnchor(Vec2::new(-TILE_WIDTH * 8.0, -TILE_HEIGHT * 4.5)),
         TileCollection::default(),
     ));
 
@@ -144,8 +142,10 @@ fn build_wall(
     sources: Query<Entity, Or<(With<UnusedAnchor>, With<DiscardAnchor>)>>,
     sinks: Query<Entity, With<WallAnchor>>,
     tile_collections: Query<&TileCollection>,
+    tile_query: Query<&Slot>,
     curves: Query<&MoveCurve>,
     mut messages: MessageWriter<TransferTile>,
+    mut commands: Commands,
 ) {
     timer.0.tick(time.delta());
     if !timer.0.just_finished() {
@@ -155,6 +155,19 @@ fn build_wall(
     let mut stabilised = true;
 
     for sink in sinks {
+        let mut set: HashSet<u8> = (0..136).into_iter().collect();
+        for tile in tile_collections.iter_descendants(sink) {
+            let Ok(slot) = tile_query.get(tile) else {
+                continue;
+            };
+            set.remove(&slot.0);
+        }
+        if set.len() == 0 {
+            set = (0..136).into_iter().collect();
+        }
+
+        let mut set = set.iter().collect_vec();
+
         // Are there any pieces in the unused or either discard?
         // if yes, transfer a single one (first from unused) to the wall.
         'outer: for source in sources {
@@ -164,6 +177,10 @@ fn build_wall(
                     src: source,
                     dest: sink,
                 });
+                let Some(slot) = set.pop() else {
+                    continue;
+                };
+                commands.entity(tile_entity).insert(Slot(*slot));
                 stabilised = false;
                 break 'outer;
             }
