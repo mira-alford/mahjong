@@ -47,21 +47,13 @@ fn fragment(
 
     if flags == 0 {
         let base_color = textureSample(front_texture, texture_sampler, mesh.uv);
-        if base_color.a <= 1e-4 {
-            color = vec4<f32>(0.0);
-        } else {
-            let overlay_color = textureSample(overlay_texture, texture_sampler, mesh.uv);
-            if overlay_color.a <= 1e-4 {
-                color = base_color;
-            } else {
-                color = overlay_color;
-            };
-        };
+        let overlay_color = textureSample(overlay_texture, texture_sampler, mesh.uv);
+        color = mix(base_color, overlay_color, overlay_color.a);
     } else {
-        color = textureSample(back_texture, texture_sampler, mesh.uv);
-    };
+        let base_color = textureSample(front_texture, texture_sampler, mesh.uv);
+    }
 
     // return vec4<f32>(color, base_color.a);
-    return vec4<f32>(color * tint);
+    return vec4<f32>(color.rgb * tint.rgb, color.a);
     // return vec4<f32>(mesh.uv, 0.0, 1.0);
 }
