@@ -8,16 +8,20 @@ use crate::{
         DiscardAnchor, HandAnchor, OwnedTile, Slot, TileCollection, TransferTile, UnusedAnchor,
         WallAnchor,
     },
-    tile::{MoveCurve, TILE_HEIGHT, TILE_WIDTH, render::TileMaterial, spawn_tile},
+    tile::{MoveCurve, TILE_HEIGHT, TILE_WIDTH, Tile, render::TileMaterial, spawn_tile},
 };
 
 #[derive(Resource)]
 struct TransitionTimer(Timer);
 
+/// The maximum number of tiles that a player must have in their hand
+/// Usize because we can use it in iters and all that
+const MAX_TILES_IN_HAND: u8 = 14;
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, SubStates)]
 #[source(GameState = GameState::Game)]
 #[states(scoped_entities)]
-enum LevelState {
+pub enum LevelState {
     #[default]
     Init,
     /// Transfers from unused or discard tiles to the wall until all are settled.
@@ -25,29 +29,22 @@ enum LevelState {
     /// Transfers from walls to each hand (alternating) on repeat until both
     /// hands are at size 14. Then waits until the tiles settle.
     Deal,
-    /// On entry to this state, toggle whose turn it is to the other.
-    /// Transfer from the wall to a players "draw" location once.
+    /// In this state, the player chooses whether to draw from the wall or take from the top of the
+    /// discard pile.
     Draw,
-    /// Enable systems to allow the player to select a tile in their hand
-    /// and swap it. Once selected, go to the steal stage.
-    Swap,
-    /// Transition the tile into the secret "steal" pile. At any point
-    /// the other opponent can either steal or ignore the piece.
-    /// A steal event includes the piece they are replacing.
-    /// If no steal, transition to discard. If steal, transition into their hand.
-    Steal,
+    /// In this state, the player has the opportunity to pick a tile and discard it from their hand
+    Discard,
     /// Ask the player if they want to play their hand. If no, go back to drawing.
+    /// On exit to this state, we switch to the other player's turn
     Play,
 }
 
-#[derive(Resource, Default, Clone, Copy, Debug)]
-enum Turn {
-    #[default]
-    Player,
-    AI,
-}
+/// Resource that represents the tile owner that is 'active' (i.e., who has their turn now)
+/// This is used to track whose turn it is in the lovely bevy state machine
+#[derive(Resource, Default, Debug, PartialEq, Eq, Clone, Copy)]
+pub struct ActiveOwner(Owner);
 
-#[derive(Component, Default, Clone, Copy, Debug)]
+#[derive(Component, Default, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Owner {
     #[default]
     Player,
@@ -55,7 +52,7 @@ pub enum Owner {
 }
 
 pub fn level_plugin(app: &mut App) {
-    app.init_resource::<Turn>()
+    app.init_resource::<ActiveOwner>()
         .insert_resource(TransitionTimer(Timer::new(
             Duration::from_millis(1),
             TimerMode::Repeating,
@@ -66,7 +63,9 @@ pub fn level_plugin(app: &mut App) {
             FixedUpdate,
             build_wall.run_if(in_state(LevelState::BuildWall)),
         )
+        // deal state
         .add_systems(FixedUpdate, deal_tiles.run_if(in_state(LevelState::Deal)));
+    // draw state
 }
 
 /// Initializes the level.
@@ -205,7 +204,7 @@ fn deal_tiles(
     tile_query: Query<(Entity, Option<&Slot>)>,
     mut messages: MessageWriter<TransferTile>,
     mut commands: Commands,
-    mut counter: Local<usize>,
+    // mut counter: Local<usize>,
 ) {
     timer.0.tick(time.delta());
     if !timer.0.just_finished() {
@@ -224,11 +223,11 @@ fn deal_tiles(
                 // the sink is a hand, and the descendants of sink are Tiles
                 let descendants: Vec<_> = tile_collections.iter_descendants(sink).collect();
 
-                if descendants.len() >= 14 {
+                if descendants.len() >= MAX_TILES_IN_HAND as usize {
                     continue;
                 }
 
-                let mut set: HashSet<u8> = (0..14).into_iter().collect();
+                let mut set: HashSet<u8> = (0..MAX_TILES_IN_HAND).collect();
                 for descendant in descendants {
                     // if the descendant (Tile in a hand?) already has a slot, add that slot number
                     // to a set of currently filled slots.
@@ -262,4 +261,165 @@ fn deal_tiles(
     // Otherwise, we maintain this state.
     // Play a tile into any hand of size < 14.
     // ...
+}
+
+fn iterate_from_turrets_to_ships(
+    tiles: Query<Entity, With<OwnedTile>>,
+    tile_collections: Query<Entity, With<TileCollection>>,
+    attachments: Query<&OwnedTile>,
+) {
+    for tile in &tiles {
+        for parent_collections_rel in attachments.iter_ancestors(tile) {
+            let tile_collection = tile_collections.get(parent_collections_rel);
+
+            info!(
+                "tile {:?} is attached to tile collection {:?}",
+                tile, tile_collection
+            );
+        }
+    }
+}
+
+/// This is run when a tile is clicked and the state will be checked along with who owns the tile.
+/// This signifies a user clicking a tile to indicate that they want to draw from the wall (as
+/// opposed to taking from disard pile).
+#[allow(clippy::too_many_arguments)]
+pub fn tile_click_observer_draw_wall(
+    event: On<Pointer<Click>>,
+    state: Res<State<LevelState>>,
+    // tiles
+    tile_collections_entities: Query<Entity, (With<WallAnchor>, With<TileCollection>)>,
+    attachments: Query<&OwnedTile>,
+    tile_collections: Query<&TileCollection>,
+
+    active_owner_res: Res<ActiveOwner>,
+    owners: Query<(Entity, &Owner)>,
+
+    mut next_state: ResMut<NextState<LevelState>>,
+    mut messages: MessageWriter<TransferTile>,
+) {
+    let event_target = event.event_target();
+    println!("clicked {:?}", event_target);
+
+    // Can only call this on
+    if !matches!(state.get(), LevelState::Draw) {
+        println!("not in draw state, instead: {:?}", state.get());
+        return;
+    }
+
+    let parent_collection_rels: Vec<_> = attachments.iter_ancestors(event_target).collect();
+    let Some(parent_rel) = parent_collection_rels.first() else {
+        warn!("couldn't find parent relationship attached to clicked tile");
+        return;
+    };
+
+    let Ok(tile_owner_entity) = tile_collections_entities.get(*parent_rel) else {
+        warn!(
+            "couldn't find parent tile collection using parent-tile relationship, filtering by wall, so probably didn't click the wall?"
+        );
+        return;
+    };
+    info!("tile collection is: {:?}", tile_owner_entity);
+
+    info!("running the tile draw");
+
+    // get the entity that is currently playing
+    // we do this so we can then move the tiles to the correct entity
+    let active_owner = active_owner_res.0;
+    let Some((active_owner_entity, _)) = owners.iter().find(|owner| *owner.1 == active_owner)
+    else {
+        warn!(
+            "couldn't find an active entity that holds owner component: {:?}",
+            active_owner
+        );
+        return;
+    };
+    info!("got the owner entity: {:?}", active_owner_entity);
+
+    let wall_tiles: Vec<_> = tile_collections
+        .iter_descendants(tile_owner_entity)
+        .collect();
+
+    let Some(drawn_tile) = wall_tiles.first() else {
+        // we've run out of tiles at this point
+        // so we build back our wall
+        info!("going back to building the wall");
+        next_state.set(LevelState::BuildWall);
+        return;
+    };
+
+    info!("got the tile to draw: {:?}", drawn_tile);
+
+    info!(
+        "transfering tile {:?} from {:?} to {:?}",
+        drawn_tile, tile_owner_entity, active_owner_entity
+    );
+    messages.write(TransferTile {
+        tile: *drawn_tile,
+        src: tile_owner_entity,
+        dest: active_owner_entity,
+    });
+
+    next_state.set(LevelState::Discard);
+}
+
+/// This is run when a tile is clicked and the state will be checked along with who owns the tile.
+/// This handles a user clicking a tile in their hand so that they can discard it
+pub fn tile_click_observer_discard_from_hand(
+    event: On<Pointer<Click>>,
+    state: Res<State<LevelState>>,
+    // tiles
+    tiles: Query<Entity, With<Tile>>,
+    tile_collections_entities: Query<Entity, (With<HandAnchor>, With<TileCollection>)>,
+    attachments: Query<&OwnedTile>,
+    tile_collections: Query<&TileCollection>,
+
+    discard_pile_query: Query<Entity, With<DiscardAnchor>>,
+
+    active_owner_res: Res<ActiveOwner>,
+    owners: Query<(Entity, &Owner)>,
+
+    mut next_state: ResMut<NextState<LevelState>>,
+    mut messages: MessageWriter<TransferTile>,
+) {
+    let event_target = event.event_target();
+    println!("clicked {:?}", event_target);
+
+    // Can only call this on
+    if !matches!(state.get(), LevelState::Discard) {
+        println!("not in discard state, instead: {:?}", state.get());
+        return;
+    }
+
+    let parent_collection_rels: Vec<_> = attachments.iter_ancestors(event_target).collect();
+    let Some(parent_rel) = parent_collection_rels.first() else {
+        warn!("couldn't find parent relationship attached to clicked tile");
+        return;
+    };
+
+    let Ok(tile_owner_entity) = tile_collections_entities.get(*parent_rel) else {
+        warn!(
+            "couldn't find parent tile collection using parent-tile relationship, filtering by hand, so probably didn't click the hand?"
+        );
+        return;
+    };
+    info!("tile collection is: {:?}", tile_owner_entity);
+
+    let discard_piles = discard_pile_query.iter().collect::<Vec<_>>();
+
+    let discard_pile_entity = discard_piles
+        .first()
+        .expect("we should have a discard pile");
+
+    info!(
+        "transfering tile {:?} from {:?} to {:?}",
+        event_target, tile_owner_entity, discard_pile_entity
+    );
+    messages.write(TransferTile {
+        tile: event_target,
+        src: tile_owner_entity,
+        dest: *discard_pile_entity,
+    });
+
+    next_state.set(LevelState::Discard);
 }

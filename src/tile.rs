@@ -5,6 +5,7 @@ use bevy::{picking::hover::Hovered, prelude::*};
 use std::time::Instant;
 
 use crate::layout::{LAYOUT_HAND_MOVE_A, LAYOUT_HAND_MOVE_B};
+use crate::level::{tile_click_observer_discard_from_hand, tile_click_observer_draw_wall};
 
 use self::kind::{Suit, TileKind};
 use self::render::{TileMaterial, TileMaterialPlugin};
@@ -30,7 +31,7 @@ pub struct MoveTile {
 }
 
 #[derive(Component, Debug)]
-struct Tile {
+pub struct Tile {
     data: TileKind,
 }
 
@@ -91,6 +92,8 @@ pub fn spawn_tile(
             MeshMaterial2d(face_material),
         ))
         .observe(tile_click_oberver)
+        .observe(tile_click_observer_draw_wall)
+        .observe(tile_click_observer_discard_from_hand)
         .observe(tile_hover_observer)
         .observe(tile_unhover_observer)
         .id()
