@@ -36,6 +36,9 @@ pub struct OwnedTile(pub Entity);
 #[relationship_target(relationship = OwnedTile, linked_spawn)]
 pub struct TileCollection(Vec<Entity>);
 
+#[derive(Component, Debug)]
+pub struct Slot(pub u8);
+
 /// `a` and `b` params that are used in our move curve functions
 /// these dictate the way in which tiles are moved (in terms of speed)
 /// for laying out a hand
@@ -62,7 +65,7 @@ fn transfer_tiles(mut messages: MessageReader<TransferTile>, mut commands: Comma
 fn layout_hand(
     mut commands: Commands,
     hand_anchors: Query<(Entity, &HandAnchor)>,
-    all_tiles: Query<(&Transform, Option<&MoveCurve>)>,
+    all_tiles: Query<(&Transform, Option<&MoveCurve>, &Slot)>,
     tile_collections: Query<&TileCollection>,
     time: Res<Time>,
 ) {
@@ -70,14 +73,14 @@ fn layout_hand(
         let tile_iter: Vec<_> = tile_collections.iter_descendants(hand_entity).collect();
 
         // collect all of the tiles that we own (filtering out non-tiles)
-        for (i, tile) in tile_iter.iter().enumerate() {
+        for tile in tile_iter.iter() {
             // we always add offset regardless because some entities might be filling slots
             // (e.g., placeholder tile that we don't render but still affects offset)
-            let cur_offset = i as f32 / 14.0 * anchor_len;
 
-            let Ok((tile_transform, opt_move_curve)) = all_tiles.get(*tile) else {
+            let Ok((tile_transform, opt_move_curve, curslot)) = all_tiles.get(*tile) else {
                 continue; // if not owned, we skip
             };
+            let cur_offset = curslot.0 as f32 / 14.0 * anchor_len;
 
             // calculate where tile should be
             let new_tile_pos = anchor_pos + Vec2::X * cur_offset;

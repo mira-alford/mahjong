@@ -1,10 +1,10 @@
 use bevy::prelude::*;
-use std::time::Duration;
+use std::{collections::HashSet, time::Duration};
 
 use crate::{
     GameState,
     layout::{
-        DiscardAnchor, HandAnchor, OwnedTile, TileCollection, TransferTile, UnusedAnchor,
+        DiscardAnchor, HandAnchor, OwnedTile, Slot, TileCollection, TransferTile, UnusedAnchor,
         WallAnchor,
     },
     tile::{render::TileMaterial, spawn_tile},
@@ -183,7 +183,9 @@ fn deal_tiles(
     sources: Query<Entity, With<WallAnchor>>,
     sinks: Query<Entity, With<HandAnchor>>,
     tile_collections: Query<&TileCollection>,
+    tile_query: Query<(Entity, Option<&Slot>)>,
     mut messages: MessageWriter<TransferTile>,
+    mut commands: Commands,
     mut counter: Local<usize>,
 ) {
     timer.0.tick(time.delta());
@@ -200,10 +202,29 @@ fn deal_tiles(
     for source in sources {
         for tile_entity in tile_collections.iter_descendants(source) {
             for sink in sinks {
+                // the sink is a hand, and the descendants of sink are Tiles
                 let descendants: Vec<_> = tile_collections.iter_descendants(sink).collect();
-                if descendants.len() > 14 {
+
+                if descendants.len() >= 14 {
                     continue;
                 }
+
+                let mut set: HashSet<u8> = (0..14).into_iter().collect();
+                for descendant in descendants {
+                    // if the descendant (Tile in a hand?) already has a slot, add that slot number
+                    // to a set of currently filled slots.
+                    //
+                    // Then once this loop is done, iterate over the set and allocate all of the
+                    // missing slots between 0 and 13 to a descendant (tile in hand)
+                    if let Ok((_, Some(Slot(x)))) = tile_query.get(descendant) {
+                        set.remove(x);
+                    }
+                }
+
+                commands
+                    .entity(tile_entity)
+                    .insert(Slot(set.into_iter().next().unwrap()));
+
                 messages.write(TransferTile {
                     tile: tile_entity,
                     src: source,
