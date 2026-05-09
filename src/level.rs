@@ -1,14 +1,15 @@
 use bevy::prelude::*;
+use itertools::Itertools;
 use std::{collections::HashSet, time::Duration};
 
 use crate::{
     GameState,
     layout::{
-        DiscardAnchor, HandAnchor, OwnedTile, PlayerSide, Slot, TileCollection, TransferTile,
-        UnusedAnchor, WallAnchor,
+        DiscardAnchor, HandAnchor, OwnedTile, Slot, TileCollection, TransferTile, UnusedAnchor,
+        WallAnchor,
     },
     player::{ActorState, PlayerLoadout},
-    tile::{MoveCurve, render::TileMaterial, spawn_tile},
+    tile::{MoveCurve, TILE_HEIGHT, TILE_WIDTH, render::TileMaterial, spawn_tile},
 };
 
 #[derive(Resource)]
@@ -40,15 +41,15 @@ enum LevelState {
     Play,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone, Copy, Debug)]
 enum Turn {
     #[default]
     Player,
     AI,
 }
 
-#[derive(Component, Default)]
-enum Owner {
+#[derive(Component, Default, Clone, Copy, Debug)]
+pub enum Owner {
     #[default]
     Player,
     AI,
@@ -57,7 +58,7 @@ enum Owner {
 pub fn level_plugin(app: &mut App) {
     app.init_resource::<Turn>()
         .insert_resource(TransitionTimer(Timer::new(
-            Duration::from_millis(100),
+            Duration::from_millis(1),
             TimerMode::Repeating,
         )))
         .add_sub_state::<LevelState>()
@@ -81,7 +82,7 @@ fn init_level(
     player_loadout: Res<PlayerLoadout>,
     asset_server: Res<AssetServer>,
 ) {
-    let tile_mesh = meshes.add(Rectangle::from_size(Vec2::new(1.0, 4.0 / 3.0)));
+    let tile_mesh = meshes.add(Rectangle::from_size(Vec2::new(TILE_WIDTH, TILE_HEIGHT)));
 
     // Spawn in the unused pile.
     let unused_id = commands
@@ -102,21 +103,21 @@ fn init_level(
 
     // Spawn in the wall!
     // TODO: wall resizing system that uses window size
-    commands.spawn((
-        WallAnchor(Vec2::new(1000.0, 1200.0), IVec2::ONE * 13),
-        TileCollection::default(),
-    ));
+    commands.spawn((WallAnchor(IVec2::new(14, 6)), TileCollection::default()));
 
     // Spawn in 2 hands:
     // TODO: hand resizing system that uses window size
     commands.spawn((
         Owner::Player,
-        HandAnchor(Vec2::new(-500.0, -300.0), 1000.0),
+        HandAnchor(
+            Vec2::new(-TILE_WIDTH * 8.0, -TILE_HEIGHT * 4.5),
+            Owner::Player,
+        ),
         TileCollection::default(),
     ));
     commands.spawn((
         Owner::AI,
-        HandAnchor(Vec2::new(-500.0, 300.0), 1000.0),
+        HandAnchor(Vec2::new(-TILE_WIDTH * 8.0, TILE_HEIGHT * 4.5), Owner::AI),
         TileCollection::default(),
     ));
 
@@ -125,16 +126,12 @@ fn init_level(
     // Spawn in 2 discards
     commands.spawn((
         Owner::Player,
-        DiscardAnchor(
-            Vec2::new(-200.0, 0.0),
-            DISCARD_LAYOUT_WIDTH,
-            PlayerSide::Down,
-        ),
+        DiscardAnchor(Vec2::new(-200.0, 0.0), DISCARD_LAYOUT_WIDTH, Owner::Player),
         TileCollection::default(),
     ));
     commands.spawn((
         Owner::AI,
-        DiscardAnchor(Vec2::new(200.0, 0.0), DISCARD_LAYOUT_WIDTH, PlayerSide::Up),
+        DiscardAnchor(Vec2::new(200.0, 0.0), DISCARD_LAYOUT_WIDTH, Owner::AI),
         TileCollection::default(),
     ));
 
@@ -154,8 +151,10 @@ fn build_wall(
     sources: Query<Entity, Or<(With<UnusedAnchor>, With<DiscardAnchor>)>>,
     sinks: Query<Entity, With<WallAnchor>>,
     tile_collections: Query<&TileCollection>,
+    tile_query: Query<&Slot>,
     curves: Query<&MoveCurve>,
     mut messages: MessageWriter<TransferTile>,
+    mut commands: Commands,
 ) {
     timer.0.tick(time.delta());
     if !timer.0.just_finished() {
@@ -165,6 +164,19 @@ fn build_wall(
     let mut stabilised = true;
 
     for sink in sinks {
+        let mut set: HashSet<u8> = (0..136).into_iter().collect();
+        for tile in tile_collections.iter_descendants(sink) {
+            let Ok(slot) = tile_query.get(tile) else {
+                continue;
+            };
+            set.remove(&slot.0);
+        }
+        if set.len() == 0 {
+            set = (0..136).into_iter().collect();
+        }
+
+        let mut set = set.iter().collect_vec();
+
         // Are there any pieces in the unused or either discard?
         // if yes, transfer a single one (first from unused) to the wall.
         'outer: for source in sources {
@@ -174,6 +186,10 @@ fn build_wall(
                     src: source,
                     dest: sink,
                 });
+                let Some(slot) = set.pop() else {
+                    continue;
+                };
+                commands.entity(tile_entity).insert(Slot(*slot));
                 stabilised = false;
                 break 'outer;
             }

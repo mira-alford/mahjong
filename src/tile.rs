@@ -5,18 +5,23 @@ use bevy::{picking::hover::Hovered, prelude::*};
 use std::time::Instant;
 
 use crate::layout::{LAYOUT_HAND_MOVE_A, LAYOUT_HAND_MOVE_B};
+use crate::level::Owner;
 
 use self::kind::{Suit, TileKind};
 use self::render::{TileMaterial, TileMaterialPlugin};
 
 pub struct TilePlugin;
 
+pub const TILE_WIDTH: f32 = 96.0;
+pub const TILE_HEIGHT: f32 = 128.0;
+
 impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(TileMaterialPlugin {})
             .add_systems(Update, (lerp_tiles, update_tile_materials))
-            .add_systems(FixedPostUpdate, move_tile)
-            .add_message::<MoveTile>();
+            .add_systems(FixedPostUpdate, (move_tile, flip_tile))
+            .add_message::<MoveTile>()
+            .add_message::<FlipTile>();
     }
 }
 
@@ -24,6 +29,12 @@ impl Plugin for TilePlugin {
 pub struct MoveTile {
     pub id: Entity,
     pub dest: Vec2,
+}
+
+#[derive(Message)]
+pub struct FlipTile {
+    pub id: Entity,
+    pub owner: Owner,
 }
 
 #[derive(Component, Debug)]
@@ -79,7 +90,7 @@ pub fn spawn_tile(
             TileFaceMaterial(face_material.clone()),
             TileBackMaterial(back_material),
             ShownFace::default(),
-            Transform::default().with_scale(Vec3::splat(128.0)),
+            Transform::default(),
             Tile {
                 data: TileKind::Suit(Suit::Characters(1)),
             },
@@ -195,6 +206,7 @@ fn move_tile(
             continue;
         }
 
+        let mut time = Instant::now();
         if let Some(curve) = curve {
             let existing_tile_pos = curve.end;
             let pos_delta = (existing_tile_pos - dest).length();
@@ -203,16 +215,33 @@ fn move_tile(
             if pos_delta < 1e-4 {
                 continue;
             }
+
+            // It is also relevant, if the new move curve is in the direction
+            // of the old curve (roughly) then we keep the same time/velocity.
+            if dest.dot(curve.end) > 0.8 {
+                time = curve.start_time;
+            }
         }
 
         // Otherwise, add a move curve
         let move_curve = MoveCurve {
             start: existing_tile_pos,
             end: dest,
-            start_time: Instant::now(),
+            start_time: time,
             a: LAYOUT_HAND_MOVE_A,
             b: LAYOUT_HAND_MOVE_B,
         };
         commands.entity(id).insert(move_curve);
+    }
+}
+
+fn flip_tile(mut messages: MessageReader<FlipTile>, mut query: Query<&mut Transform>) {
+    for &FlipTile { id, owner } in messages.read() {
+        if let Ok(mut transform) = query.get_mut(id) {
+            *transform = transform.with_rotation(Quat::from_rotation_z(match owner {
+                Owner::AI => core::f32::consts::TAU / 2f32,
+                Owner::Player => 0f32,
+            }));
+        }
     }
 }
