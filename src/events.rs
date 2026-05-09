@@ -5,7 +5,7 @@ use bevy::{platform::collections::HashSet, prelude::*};
 use crate::{
     layout::{Anchor, TileCollection, TransferTile},
     level::{HealthBar, LevelState, Owner},
-    model::game::GameModel,
+    model::{game::GameModel, player::ActorState},
     tile::{Tile, kind::TileKind},
 };
 
@@ -70,9 +70,26 @@ pub struct HealthUpdateMsg {
     max_health: u32,
 }
 
-fn draw_tile_msg_handler(mut messages: MessageReader<DrawTileMsg>, mut commands: Commands) {
-    for message in messages.read() {
-        dbg!(message);
+fn draw_tile_msg_handler(
+    mut messages: MessageReader<DrawTileMsg>,
+    mut commands: Commands,
+    mut transfer: MessageWriter<TileTransferMsg>,
+    mut game_model: ResMut<GameModel>,
+    actors: Query<(&mut ActorState, &Owner)>,
+) {
+    if messages.read().next().is_some() {
+        for (mut actor, owner) in actors {
+            if *owner == Owner::Player {
+                let tile = game_model.wall.pop().unwrap();
+                actor.draw_tile(tile);
+
+                transfer.write(TileTransferMsg {
+                    start: TileLocation::Wall,
+                    end: TileLocation::Draw(Owner::Player),
+                    tile,
+                });
+            }
+        }
     }
 }
 
