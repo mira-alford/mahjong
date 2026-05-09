@@ -18,8 +18,8 @@ use self::render::{TileMaterial, TileMaterialPlugin};
 
 pub struct TilePlugin;
 
-pub const TILE_WIDTH: f32 = 72.0;
-pub const TILE_HEIGHT: f32 = 96.0;
+pub const TILE_WIDTH: f32 = 60.0;
+pub const TILE_HEIGHT: f32 = 80.0;
 
 impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
