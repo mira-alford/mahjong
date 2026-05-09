@@ -4,8 +4,8 @@ use std::{collections::HashSet, time::Duration};
 use crate::{
     GameState,
     layout::{
-        DiscardAnchor, HandAnchor, OwnedTile, PlayerSide, Slot, TileCollection, TransferTile,
-        UnusedAnchor, WallAnchor,
+        DiscardAnchor, HandAnchor, OwnedTile, Slot, TileCollection, TransferTile, UnusedAnchor,
+        WallAnchor,
     },
     tile::{MoveCurve, TILE_HEIGHT, TILE_WIDTH, render::TileMaterial, spawn_tile},
 };
@@ -39,14 +39,14 @@ enum LevelState {
     Play,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone, Copy, Debug)]
 enum Turn {
     #[default]
     Player,
     AI,
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone, Copy, Debug)]
 pub enum Owner {
     #[default]
     Player,
@@ -123,16 +123,12 @@ fn init_level(
     // Spawn in 2 discards
     commands.spawn((
         Owner::Player,
-        DiscardAnchor(
-            Vec2::new(-200.0, 0.0),
-            DISCARD_LAYOUT_WIDTH,
-            PlayerSide::Down,
-        ),
+        DiscardAnchor(Vec2::new(-200.0, 0.0), DISCARD_LAYOUT_WIDTH, Owner::Player),
         TileCollection::default(),
     ));
     commands.spawn((
         Owner::AI,
-        DiscardAnchor(Vec2::new(200.0, 0.0), DISCARD_LAYOUT_WIDTH, PlayerSide::Up),
+        DiscardAnchor(Vec2::new(200.0, 0.0), DISCARD_LAYOUT_WIDTH, Owner::AI),
         TileCollection::default(),
     ));
 
