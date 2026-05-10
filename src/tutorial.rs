@@ -8,11 +8,14 @@ struct TuteStuff;
 #[derive(Component)]
 struct TuteRoot;
 
+#[derive(Component)]
+struct SkipButton;
+
 pub fn tutorial_plugin(app: &mut App) {
     app.add_systems(OnEnter(GameState::Tutorial), spawn_tutorial_scene)
         .add_systems(
             Update,
-            advance_tutorial.run_if(in_state(GameState::Tutorial)),
+            (skip_button_system, advance_tutorial).run_if(in_state(GameState::Tutorial)),
         );
 }
 
@@ -152,7 +155,34 @@ fn advance_tutorial(
     }
 }
 
+fn skip_button_system(
+    interactions: Query<(&Interaction, &SkipButton), (Changed<Interaction>, With<Button>)>,
+    mut exit: MessageWriter<AppExit>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    for (interaction, _) in interactions {
+        if *interaction == Interaction::Pressed {
+            next_state.set(GameState::PlayerSelect);
+        }
+    }
+}
+
 fn spawn_tutorial_scene(mut commands: Commands) {
+    commands.spawn((
+        DespawnOnExit(GameState::Tutorial),
+        Button,
+        SkipButton,
+        Node {
+            width: px(150),
+            height: px(50),
+            position_type: PositionType::Absolute,
+            top: px(0),
+            right: px(0),
+            ..default()
+        },
+        BackgroundColor(Color::BLACK),
+        children![Text::new("Skip"),],
+    ));
     commands.spawn((
         DespawnOnExit(GameState::Tutorial),
         Node {
