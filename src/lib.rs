@@ -7,6 +7,7 @@ pub mod model;
 pub mod player_select;
 pub mod tile;
 pub mod title_menu;
+pub mod tutorial;
 
 use bevy::{prelude::*, window::WindowResolution};
 
@@ -18,6 +19,7 @@ pub enum GameState {
     TitleMenu,
     PlayerSelect,
     Game,
+    Tutorial,
 }
 
 fn setup(mut commands: Commands) {
@@ -44,6 +46,7 @@ impl Plugin for MahjongPlugin {
                 level::level_plugin,
                 events::event_plugin,
                 layout::layout_plugin,
+                tutorial::tutorial_plugin,
             ))
             .init_state::<GameState>();
     }
