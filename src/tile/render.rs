@@ -134,24 +134,21 @@ fn hover_animation(
     material_query: Query<(&mut MeshMaterial2d<TileMaterial>, &Hovered), With<HoveringAnimation>>,
 ) {
     for (material_handle, hovered) in material_query.iter() {
-        let target = if hovered.0 {
-            Vec2::new(1.2, 1.2)
+        let (target_scale, target_tilt) = if hovered.0 {
+            (Vec2::new(1.2, 1.2), Vec2::new(0.0, 20.0))
         } else {
-            Vec2::new(1.0, 1.0)
+            (Vec2::new(1.0, 1.0), Vec2::new(0.0, 0.0))
         };
 
         let material = materials.get_mut(&material_handle.0).expect("darn");
         let curr_scale = material.clone().get_scale();
+        let curr_tilt = material.clone().get_tilt();
 
-        let lerp_factor = 10.0 * time.delta_secs();
+        let scale_lerp_factor = 10.0 * time.delta_secs();
+        let tilt_lerp_factor = 10.0 * time.delta_secs();
 
-        material.set_scale(&curr_scale.lerp(target, lerp_factor));
-
-        if hovered.0 {
-            material.set_tilt(&Vec2::new(0.0, 30.0));
-        } else {
-            material.set_tilt(&Vec2::ZERO)
-        }
+        material.set_scale(&curr_scale.lerp(target_scale, scale_lerp_factor));
+        material.set_tilt(&curr_tilt.lerp(target_tilt, tilt_lerp_factor));
     }
 }
 
@@ -167,17 +164,10 @@ pub struct FlipInProgress {
     done_flip: bool,
 }
 
-fn start_flip_animation(
-    mut commands: Commands,
-    query: Query<Entity, Changed<ShownFace>>,
-    mut first_run: Local<bool>,
-) {
-    // changed is triggered on the first run so need to skip first one
-    if !*first_run {
-        *first_run = true;
-        return;
-    }
+fn start_flip_animation(mut commands: Commands, query: Query<Entity, Changed<ShownFace>>) {
     for entity in query.iter() {
+        info!("starting flip animation on entity {}", entity);
+
         commands
             .get_entity(entity)
             .expect("ruh rho")

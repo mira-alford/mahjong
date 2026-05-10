@@ -4,7 +4,8 @@ use std::ops::Neg;
 
 use crate::level::Owner;
 use crate::model::game::GameModel;
-use crate::tile::{MoveTile, RotateTile, ShownFace, TILE_HEIGHT, TILE_WIDTH, Tile};
+use crate::tile::render::HoveringAnimation;
+use crate::tile::{MoveTile, RotateTile, ShownFace, TILE_HEIGHT, TILE_WIDTH, Tile, TileFace};
 
 /// Hand Anchor
 #[derive(Copy, Debug, Clone)]
@@ -272,49 +273,30 @@ fn transfer_tiles(
 ) {
     for &TransferTile { tile, src, dest } in messages.read() {
         if let Ok((entity, anchor, owner)) = anchors.get(dest) {
-            if (matches!(anchor, Anchor::Hand(_)) && matches!(owner, Some(Owner::AI)))
+            let mut entity_commands = commands.entity(tile);
+
+            let face_to_show: TileFace = if (matches!(anchor, Anchor::Hand(_))
+                && matches!(owner, Some(Owner::AI)))
                 || matches!(anchor, Anchor::Wall(_))
             {
-                // for entity in tile_collection.iter_descendants(entity) {
-                commands
-                    .entity(tile)
-                    .insert(ShownFace(crate::tile::TileFace::Bottom));
-                // }
+                entity_commands.remove::<HoveringAnimation>();
+                TileFace::Bottom
             } else {
-                // for entity in tile_collection.iter_descendants(entity) {
-                commands
-                    .entity(tile)
-                    .insert(ShownFace(crate::tile::TileFace::Top));
-                // }
-            }
+                entity_commands.insert(HoveringAnimation);
+                TileFace::Top
+            };
+
+            entity_commands
+                .entry::<ShownFace>()
+                .and_modify(move |mut shown_face| {
+                    if shown_face.0 != face_to_show {
+                        shown_face.0 = face_to_show
+                    }
+                });
         }
 
         commands.entity(src).remove_related::<OwnedTile>(&[tile]);
         commands.entity(dest).add_one_related::<OwnedTile>(tile);
-    }
-}
-
-fn flip_hidden_tiles(
-    anchors: Query<(Entity, &Anchor, &Owner)>,
-    tile_collection: Query<&TileCollection>,
-    mut commands: Commands,
-) {
-    for (entity, anchor, owner) in &anchors {
-        if !((matches!(anchor, Anchor::Hand(_)) && *owner == Owner::AI)
-            || matches!(anchor, Anchor::Wall(_)))
-        {
-            for entity in tile_collection.iter_descendants(entity) {
-                commands
-                    .entity(entity)
-                    .insert(ShownFace(crate::tile::TileFace::Top));
-            }
-        } else {
-            for entity in tile_collection.iter_descendants(entity) {
-                commands
-                    .entity(entity)
-                    .insert(ShownFace(crate::tile::TileFace::Bottom));
-            }
-        }
     }
 }
 
