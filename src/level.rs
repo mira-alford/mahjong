@@ -203,7 +203,7 @@ fn init_level(
         Owner::AI,
         Anchor::Draw(crate::layout::Draw(Vec2::new(
             -TILE_WIDTH * 10.0,
-            -TILE_HEIGHT * 4.5,
+            TILE_HEIGHT * 4.5,
         ))),
         TileCollection::default(),
     ));
