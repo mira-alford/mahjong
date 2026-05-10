@@ -216,7 +216,7 @@ fn init_level(
     commands.spawn((
         Owner::Player,
         Anchor::Discard(Discard {
-            pos: Vec2::new(-200.0, 0.0),
+            pos: Vec2::new(-TILE_WIDTH * 4.0, -TILE_HEIGHT * 1.0),
             max_width: DISCARD_LAYOUT_WIDTH,
         }),
         TileCollection::default(),
@@ -224,7 +224,7 @@ fn init_level(
     commands.spawn((
         Owner::AI,
         Anchor::Discard(Discard {
-            pos: Vec2::new(200.0, 0.0),
+            pos: Vec2::new(TILE_WIDTH * 4.0, TILE_HEIGHT * 1.0),
             max_width: DISCARD_LAYOUT_WIDTH,
         }),
         TileCollection::default(),

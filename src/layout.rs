@@ -278,6 +278,7 @@ fn transfer_tiles(
             let face_to_show: TileFace = if (matches!(anchor, Anchor::Hand(_))
                 && matches!(owner, Some(Owner::AI)))
                 || matches!(anchor, Anchor::Wall(_))
+                || (matches!(anchor, Anchor::Draw(_)) && matches!(owner, Some(Owner::AI)))
             {
                 entity_commands.remove::<HoveringAnimation>();
                 TileFace::Bottom

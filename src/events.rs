@@ -79,21 +79,23 @@ fn draw_tile_msg_handler(
     mut commands: Commands,
     mut transfer: MessageWriter<TileTransferMsg>,
     mut game_model: ResMut<GameModel>,
-    actors: Query<(&mut ActorState, &Owner)>,
+    mut actors: Query<(&mut ActorState, &Owner)>,
 ) {
-    if messages.read().next().is_some() {
-        for (mut actor, owner) in actors {
-            // if *owner == Owner::Player {
-            let tile = game_model.wall.pop().unwrap();
-            actor.draw_tile(tile);
+    for DrawTileMsg(loc) in messages.read() {
+        for (mut actor, owner) in &mut actors {
+            if *owner == game_model.turn {
+                // if *owner == Owner::Player {
+                let tile = game_model.wall.pop().unwrap();
+                actor.draw_tile(tile);
 
-            transfer.write(TileTransferMsg {
-                start: TileLocation::Wall,
-                end: TileLocation::Draw(*owner),
-                tile,
-            });
-            // }
+                transfer.write(TileTransferMsg {
+                    start: TileLocation::Wall,
+                    end: TileLocation::Draw(*owner),
+                    tile,
+                });
+            }
         }
+        // }
     }
 }
 
@@ -103,31 +105,34 @@ fn discard_tile_msg_handler(
     mut transfer: MessageWriter<TileTransferMsg>,
     assets: Res<AssetServer>,
     actors: Query<(&mut ActorState, &Owner)>,
+    mut game_model: ResMut<GameModel>,
 ) {
     if let Some(DiscardTileMsg(loc, tile)) = messages.read().next() {
         for (mut actor, owner) in actors {
-            // if *owner == Owner::Player {
-            let mut rng = rand::rng();
-            let n = rng.random_range(1..=4);
+            if *owner == game_model.turn {
+                // if *owner == Owner::Player {
+                let mut rng = rand::rng();
+                let n = rng.random_range(1..=4);
 
-            commands.spawn((
-                AudioPlayer::new(assets.load(&format!("audio/click{n}.ogg"))),
-                PlaybackSettings::DESPAWN,
-            ));
+                commands.spawn((
+                    AudioPlayer::new(assets.load(&format!("audio/click{n}.ogg"))),
+                    PlaybackSettings::DESPAWN,
+                ));
 
-            let added_tile = actor.discard_tile(*loc);
-            transfer.write(TileTransferMsg {
-                start: *loc,
-                end: TileLocation::Discard(*owner),
-                tile: *tile,
-            });
-
-            if matches!(loc, TileLocation::Hand(..)) {
+                let added_tile = actor.discard_tile(*loc);
                 transfer.write(TileTransferMsg {
-                    start: TileLocation::Draw(*owner),
-                    end: TileLocation::Hand(*owner, 0),
-                    tile: added_tile.unwrap(),
+                    start: *loc,
+                    end: TileLocation::Discard(*owner),
+                    tile: *tile,
                 });
+
+                if matches!(loc, TileLocation::Hand(..)) {
+                    transfer.write(TileTransferMsg {
+                        start: TileLocation::Draw(*owner),
+                        end: TileLocation::Hand(*owner, 0),
+                        tile: added_tile.unwrap(),
+                    });
+                }
             }
         }
         // }
