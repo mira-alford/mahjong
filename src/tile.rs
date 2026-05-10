@@ -145,13 +145,19 @@ impl TileBundle {
             hovered: Hovered::default(),
         }
     }
+
+    /// change the shown face of the tile bundle
+    pub fn shown_face(mut self, tile_face: TileFace) -> Self {
+        self.shown_face.0 = tile_face;
+        self
+    }
 }
 
 /// the currently up facing face of a tile, i.e. the face you can see
 #[derive(Component, Default)]
 pub struct ShownFace(pub TileFace);
 
-#[derive(Default)]
+#[derive(Default, PartialEq, Eq)]
 pub enum TileFace {
     #[default]
     Top,

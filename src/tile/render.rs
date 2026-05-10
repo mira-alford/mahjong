@@ -167,17 +167,10 @@ pub struct FlipInProgress {
     done_flip: bool,
 }
 
-fn start_flip_animation(
-    mut commands: Commands,
-    query: Query<Entity, Changed<ShownFace>>,
-    mut first_run: Local<bool>,
-) {
-    // changed is triggered on the first run so need to skip first one
-    if !*first_run {
-        *first_run = true;
-        return;
-    }
+fn start_flip_animation(mut commands: Commands, query: Query<Entity, Changed<ShownFace>>) {
     for entity in query.iter() {
+        info!("starting flip animation on entity {}", entity);
+
         commands
             .get_entity(entity)
             .expect("ruh rho")
