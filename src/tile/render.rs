@@ -145,7 +145,7 @@ fn hover_animation(
         let curr_tilt = material.clone().get_tilt();
 
         let scale_lerp_factor = 10.0 * time.delta_secs();
-        let tilt_lerp_factor = 30.0 * time.delta_secs();
+        let tilt_lerp_factor = 10.0 * time.delta_secs();
 
         material.set_scale(&curr_scale.lerp(target_scale, scale_lerp_factor));
         material.set_tilt(&curr_tilt.lerp(target_tilt, tilt_lerp_factor));
