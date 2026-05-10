@@ -113,13 +113,15 @@ fn init_level(
     // TODO: Eventually replace this
     for tile in player_loadout.full_deck.clone() {
         let tile_id = commands
-            .spawn(TileBundle::new(
-                &mut materials,
-                asset_server.clone(),
-                shared_tile_data.clone(),
-                tile,
-            ))
-            .insert(ShownFace(crate::tile::TileFace::Bottom))
+            .spawn(
+                TileBundle::new(
+                    &mut materials,
+                    asset_server.clone(),
+                    shared_tile_data.clone(),
+                    tile,
+                )
+                .shown_face(crate::tile::TileFace::Bottom),
+            )
             .observe(tile_click_oberver)
             .id();
         commands.entity(tile_id).insert(OwnedTile(unused_id));
@@ -203,7 +205,7 @@ fn init_level(
         Owner::AI,
         Anchor::Draw(crate::layout::Draw(Vec2::new(
             -TILE_WIDTH * 10.0,
-            -TILE_HEIGHT * 4.5,
+            TILE_HEIGHT * 4.5,
         ))),
         TileCollection::default(),
     ));

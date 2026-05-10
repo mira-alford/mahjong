@@ -4,8 +4,10 @@ pub mod render;
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use itertools::Itertools;
+use rand::seq::IndexedRandom;
 use std::time::Instant;
 
+use crate::GameState;
 use crate::events::{
     DiscardTileMsg, DrawTileMsg, PlayTilesMsg, discard_tile, draw_tile, play_tile,
 };
@@ -27,6 +29,10 @@ impl Plugin for TilePlugin {
             .add_systems(Startup, SharedTileData::init_system)
             .add_systems(Update, lerp_tiles)
             .add_systems(FixedPostUpdate, (move_tile, rotate_tile))
+            .add_systems(
+                FixedUpdate,
+                fake_tile_click_oberver.run_if(in_state(GameState::Game)),
+            )
             .add_message::<MoveTile>()
             .add_message::<RotateTile>();
     }
@@ -145,13 +151,19 @@ impl TileBundle {
             hovered: Hovered::default(),
         }
     }
+
+    /// change the shown face of the tile bundle
+    pub fn shown_face(mut self, tile_face: TileFace) -> Self {
+        self.shown_face.0 = tile_face;
+        self
+    }
 }
 
 /// the currently up facing face of a tile, i.e. the face you can see
 #[derive(Component, Default)]
 pub struct ShownFace(pub TileFace);
 
-#[derive(Default)]
+#[derive(Default, PartialEq, Eq)]
 pub enum TileFace {
     #[default]
     Top,
@@ -288,6 +300,121 @@ pub fn tile_click_oberver(
     }
 
     let Ok((&anchor, owner)) = anchors.get(ancestor) else {
+        warn!("Unable to find anchor for clicked tile parent");
+        return;
+    };
+
+    let Ok(tile) = entities.get(event_target) else {
+        warn!("Unable to fined tile");
+        return;
+    };
+
+    match &level_state.get() {
+        LevelState::Draw => draw_tile(
+            anchor,
+            owner.copied(),
+            game_model.into(),
+            draw_messages,
+            next_state,
+        ),
+        LevelState::Discard => discard_tile(
+            anchor,
+            owner.copied(),
+            *tile,
+            index,
+            game_model.into(),
+            discard_messages,
+            next_state,
+        ),
+        LevelState::Play => play_tile(
+            anchor,
+            owner.copied(),
+            game_model,
+            play_tile_messages,
+            next_state,
+        ),
+        _ => (),
+    };
+}
+
+pub fn fake_tile_click_oberver(
+    entities: Query<&Tile>,
+    owned_tile: Query<&OwnedTile>,
+    tile_collections: Query<&TileCollection>,
+    anchors: Query<(Entity, &Anchor, Option<&Owner>)>,
+    level_state: Res<State<LevelState>>,
+    game_model: ResMut<GameModel>,
+
+    // behold the message writers
+    draw_messages: MessageWriter<DrawTileMsg>,
+    discard_messages: MessageWriter<DiscardTileMsg>,
+    play_tile_messages: MessageWriter<PlayTilesMsg>,
+
+    // state transition
+    next_state: ResMut<NextState<LevelState>>,
+    // state transition
+    state: Res<State<LevelState>>,
+) {
+    if !matches!(game_model.turn, Owner::AI) {
+        return;
+    }
+
+    let Some(ai_hand) = (anchors.iter().find(|(_, anchor, owner)| {
+        matches!(**anchor, Anchor::Hand(_)) && matches!(*owner, Some(Owner::AI))
+    })) else {
+        return;
+    };
+    let ai_hand = tile_collections.iter_descendants(ai_hand.0).collect_vec();
+
+    let Some(wall_hand) = anchors
+        .iter()
+        .find(|(_, anchor, owner)| matches!(**anchor, Anchor::Wall(_)))
+    else {
+        return;
+    };
+    let wall_hand = tile_collections.iter_descendants(wall_hand.0).collect_vec();
+
+    let event_target = *match **state {
+        LevelState::Init => return,
+        LevelState::BuildWall => return,
+        LevelState::Deal => return,
+        LevelState::Draw => {
+            // Random wall tile clicked
+            wall_hand.sample(&mut rand::rng(), 1).collect_vec()[0]
+        }
+        LevelState::Discard => {
+            // Get the children of the anchor for the ai hand and pick randomly
+            ai_hand.sample(&mut rand::rng(), 1).collect_vec()[0]
+        }
+        LevelState::Play => {
+            // Random hand tile clicked.
+            ai_hand.sample(&mut rand::rng(), 1).collect_vec()[0]
+        }
+    };
+    info!(target=?event_target, "ai clicked tile");
+
+    if matches!(game_model.turn, Owner::Player) {
+        return;
+    }
+
+    let Some(ancestor) = owned_tile.iter_ancestors(event_target).next() else {
+        warn!("Unable to find ancestor for clicked tile");
+        return;
+    };
+
+    let children = tile_collections.iter_descendants(ancestor);
+    let mut index = 0;
+    for (i, child) in children
+        .sorted_by_key(|c| entities.get(*c).ok().map(|t| t.kind))
+        .enumerate()
+    {
+        if child == event_target {
+            index = i;
+            break;
+        }
+    }
+
+    let Ok((_, &anchor, owner)) = anchors.get(ancestor) else {
         warn!("Unable to find anchor for clicked tile parent");
         return;
     };

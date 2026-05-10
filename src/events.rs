@@ -83,16 +83,16 @@ fn draw_tile_msg_handler(
 ) {
     if messages.read().next().is_some() {
         for (mut actor, owner) in actors {
-            if *owner == Owner::Player {
-                let tile = game_model.wall.pop().unwrap();
-                actor.draw_tile(tile);
+            // if *owner == Owner::Player {
+            let tile = game_model.wall.pop().unwrap();
+            actor.draw_tile(tile);
 
-                transfer.write(TileTransferMsg {
-                    start: TileLocation::Wall,
-                    end: TileLocation::Draw(Owner::Player),
-                    tile,
-                });
-            }
+            transfer.write(TileTransferMsg {
+                start: TileLocation::Wall,
+                end: TileLocation::Draw(*owner),
+                tile,
+            });
+            // }
         }
     }
 }
@@ -106,31 +106,31 @@ fn discard_tile_msg_handler(
 ) {
     if let Some(DiscardTileMsg(loc, tile)) = messages.read().next() {
         for (mut actor, owner) in actors {
-            if *owner == Owner::Player {
-                let mut rng = rand::rng();
-                let n = rng.random_range(1..=4);
+            // if *owner == Owner::Player {
+            let mut rng = rand::rng();
+            let n = rng.random_range(1..=4);
 
-                commands.spawn((
-                    AudioPlayer::new(assets.load(&format!("audio/click{n}.ogg"))),
-                    PlaybackSettings::DESPAWN,
-                ));
+            commands.spawn((
+                AudioPlayer::new(assets.load(&format!("audio/click{n}.ogg"))),
+                PlaybackSettings::DESPAWN,
+            ));
 
-                let added_tile = actor.discard_tile(*loc);
+            let added_tile = actor.discard_tile(*loc);
+            transfer.write(TileTransferMsg {
+                start: *loc,
+                end: TileLocation::Discard(*owner),
+                tile: *tile,
+            });
+
+            if matches!(loc, TileLocation::Hand(..)) {
                 transfer.write(TileTransferMsg {
-                    start: *loc,
-                    end: TileLocation::Discard(Owner::Player),
-                    tile: *tile,
+                    start: TileLocation::Draw(*owner),
+                    end: TileLocation::Hand(*owner, 0),
+                    tile: added_tile.unwrap(),
                 });
-
-                if matches!(loc, TileLocation::Hand(..)) {
-                    transfer.write(TileTransferMsg {
-                        start: TileLocation::Draw(Owner::Player),
-                        end: TileLocation::Hand(Owner::Player, 0),
-                        tile: added_tile.unwrap(),
-                    });
-                }
             }
         }
+        // }
     }
 }
 
@@ -253,6 +253,7 @@ pub fn draw_tile(
     info!(state=?LevelState::Discard, "transitioning state");
     next_state.set(LevelState::Discard);
 }
+
 pub fn discard_tile(
     anchor: Anchor,
     owner: Option<Owner>,
@@ -283,6 +284,7 @@ pub fn discard_tile(
     info!(state=?LevelState::Play, "transitioning state");
     next_state.set(LevelState::Play);
 }
+
 pub fn play_tile(
     anchor: Anchor,
     owner_opt: Option<Owner>,
