@@ -77,7 +77,7 @@ fn menu_button_system(
         if *interaction == Interaction::Pressed {
             match action {
                 MenuButtonAction::Play => {
-                    next_state.set(GameState::PlayerSelect);
+                    next_state.set(GameState::Tutorial);
                 }
                 MenuButtonAction::Exit => {
                     exit.write(AppExit::Success);
