@@ -10,23 +10,29 @@ type Deck = Vec<TileKind>;
 
 // Creates the standard mahjong deck
 fn default_deck() -> Deck {
-    let mut res = Vec::new();
-
-    for _ in 0..4 {
-        for num in 1..=9 {
-            res.push(TileKind::Number(Suit::Characters, num));
-            res.push(TileKind::Number(Suit::Bamboo, num));
-            res.push(TileKind::Number(Suit::Circle, num));
-        }
-
-        for dir in [Wind::East, Wind::South, Wind::West, Wind::North] {
-            res.push(TileKind::Honor(Honor::Wind(dir)));
-        }
-
-        for col in [Dragon::Red, Dragon::Green, Dragon::White] {
-            res.push(TileKind::Honor(Honor::Dragon(col)));
-        }
-    }
+    let mut res = Vec::from_iter(
+        core::iter::repeat_n(
+            (1..=9)
+                .map(|num: u8| {
+                    [Suit::Characters, Suit::Bamboo, Suit::Circle]
+                        .into_iter()
+                        .map(move |suit| TileKind::Number(suit, num))
+                })
+                .flatten()
+                .chain(
+                    [Wind::East, Wind::South, Wind::West, Wind::North]
+                        .into_iter()
+                        .map(|wind| TileKind::Honor(Honor::Wind(wind))),
+                )
+                .chain(
+                    [Dragon::Red, Dragon::Green, Dragon::White]
+                        .into_iter()
+                        .map(|dragon| TileKind::Honor(Honor::Dragon(dragon))),
+                ),
+            4,
+        )
+        .flatten(),
+    );
 
     // This doesn't really matter I guess? We will shuffle before playing anyway
     res.sort();
@@ -247,10 +253,8 @@ impl ActorState {
     /// the hand.
     pub fn discard_tile(&mut self, location: TileLocation) -> Option<TileKind> {
         match location {
-            TileLocation::Draw(_) => {
-                if let Some(x) = self.drawn_tile.take() {
-                    self.discard.push(x);
-                }
+            TileLocation::Draw(_) if let Some(x) = self.drawn_tile.take() => {
+                self.discard.push(x);
                 None
             }
             TileLocation::Hand(_, ix) => {
@@ -258,9 +262,10 @@ impl ActorState {
                 if let Some(tile) = self.drawn_tile.take() {
                     self.hand.push(tile);
                     self.hand.sort();
-                    return Some(tile);
+                    Some(tile)
+                } else {
+                    None
                 }
-                None
             }
             _ => unreachable!(),
         }
