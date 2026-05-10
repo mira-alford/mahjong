@@ -4,6 +4,7 @@ use std::ops::Neg;
 
 use crate::level::Owner;
 use crate::model::game::GameModel;
+use crate::tile::render::HoveringAnimation;
 use crate::tile::{MoveTile, RotateTile, ShownFace, TILE_HEIGHT, TILE_WIDTH, Tile, TileFace};
 
 /// Hand Anchor
@@ -272,15 +273,19 @@ fn transfer_tiles(
 ) {
     for &TransferTile { tile, src, dest } in messages.read() {
         if let Ok((entity, anchor, owner)) = anchors.get(dest) {
+            let mut entity_commands = commands.entity(tile);
+
             let face_to_show: TileFace = if (matches!(anchor, Anchor::Hand(_))
                 && matches!(owner, Some(Owner::AI)))
                 || matches!(anchor, Anchor::Wall(_))
             {
+                entity_commands.remove::<HoveringAnimation>();
                 TileFace::Bottom
             } else {
+                entity_commands.insert(HoveringAnimation);
                 TileFace::Top
             };
-            let mut entity_commands = commands.entity(tile);
+
             entity_commands
                 .entry::<ShownFace>()
                 .and_modify(move |mut shown_face| {
